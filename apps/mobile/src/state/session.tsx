@@ -13,6 +13,7 @@ const DEMO_PROFILE: Profile = {
   last_name: "",
   role: "worker",
   is_active: true,
+  is_approved: true,
   locale: "et",
   hourly_rate: null,
   self_hourly_rate: 15,
@@ -29,6 +30,7 @@ export interface Profile {
   last_name: string;
   role: "worker" | "admin";
   is_active: boolean;
+  is_approved: boolean;
   locale: Locale;
   hourly_rate: number | null;
   self_hourly_rate: number | null;

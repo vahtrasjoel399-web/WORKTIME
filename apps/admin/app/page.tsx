@@ -2,6 +2,7 @@ import Link from "next/link";
 import { supabaseServer } from "@/lib/supabase-server";
 import { hours1, money } from "@/lib/format";
 import { AddWorker } from "@/components/AddWorker";
+import { PendingWorkers } from "@/components/PendingWorkers";
 import type { Profile } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -33,7 +34,9 @@ export default async function WorkersPage() {
     monthSeconds.set(s.user_id, (monthSeconds.get(s.user_id) ?? 0) + (s.worked_seconds ?? 0));
   }
 
-  const list = (workers ?? []) as Profile[];
+  const all = (workers ?? []) as Profile[];
+  const pending = all.filter((w) => !w.is_approved);
+  const list = all.filter((w) => w.is_approved);
   const onShift = list.filter((w) => openBy.has(w.id)).length;
 
   return (
@@ -61,6 +64,8 @@ export default async function WorkersPage() {
           <AddWorker />
         </div>
       </div>
+
+      <PendingWorkers pending={pending} />
 
       <div className="overflow-hidden rounded-2xl border border-border bg-surface">
         <table className="w-full text-sm">

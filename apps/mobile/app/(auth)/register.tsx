@@ -5,6 +5,8 @@ import { supabase } from "@/lib/supabase";
 import { useSession } from "@/state/session";
 import { useTheme } from "@/theme/ThemeProvider";
 import { Screen, Title, Muted, Body } from "@/components/ui";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { useLocale } from "@/i18n/LocaleProvider";
 import { font, radius, space } from "@/theme/tokens";
 import { t } from "@/i18n";
 
@@ -13,6 +15,7 @@ import { t } from "@/i18n";
 // insert directly). First-user/company creation happens in the web admin panel.
 export default function Register() {
   const { theme } = useTheme();
+  useLocale(); // re-render on language change
   const { refreshProfile } = useSession();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -62,6 +65,7 @@ export default function Register() {
     <Screen>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.wrap} keyboardShouldPersistTaps="handled">
+          <LanguageSwitcher />
           <View style={{ gap: space(2) }}>
             <Title style={{ fontSize: 32 }}>{t("register.title")}</Title>
             <Muted>{t("register.subtitle")}</Muted>

@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { View, StyleSheet, Pressable } from "react-native";
+import { View, StyleSheet, Pressable, useWindowDimensions } from "react-native";
 import { MotiView, AnimatePresence } from "moti";
 import { useTheme } from "@/theme/ThemeProvider";
 import { Screen, Title, Muted, Body, Chip, Mono } from "@/components/ui";
@@ -17,6 +17,9 @@ export default function Home() {
   const { theme } = useTheme();
   const { profile } = useSession();
   const { state, start, finish, toggleBreak, clearSummary } = useShiftController(profile);
+  const { width, height } = useWindowDimensions();
+  // timer scales to the smaller screen dimension so it fits every phone
+  const timerSize = Math.max(180, Math.min(width * 0.68, height * 0.38, 300));
 
   const targetSeconds = (profile?.target_shift_hours ?? 8) * 3600;
   const progress = state.seconds / targetSeconds;
@@ -48,7 +51,7 @@ export default function Home() {
 
         {/* signature timer */}
         <View style={styles.timerWrap}>
-          <TimerArc progress={progress} label={hms(state.seconds)} active={active} />
+          <TimerArc progress={progress} label={hms(state.seconds)} active={active} size={timerSize} />
           {active && (
             <MotiView
               from={{ opacity: 0, translateY: 8 }}

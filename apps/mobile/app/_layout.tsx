@@ -14,6 +14,7 @@ import { JetBrainsMono_500Medium } from "@expo-google-fonts/jetbrains-mono";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { ThemeProvider, useTheme } from "@/theme/ThemeProvider";
 import { SessionProvider } from "@/state/session";
+import { LocaleProvider } from "@/i18n/LocaleProvider";
 import { initLocale } from "@/i18n";
 import { startAutoSync } from "@/lib/sync";
 
@@ -55,9 +56,11 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider>
-        <SessionProvider>
-          <ThemedStack />
-        </SessionProvider>
+        <LocaleProvider>
+          <SessionProvider>
+            <ThemedStack />
+          </SessionProvider>
+        </LocaleProvider>
       </ThemeProvider>
     </GestureHandlerRootView>
   );

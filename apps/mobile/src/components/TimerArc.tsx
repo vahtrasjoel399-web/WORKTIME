@@ -106,8 +106,10 @@ export function TimerArc({ progress, label, active, size = 264, reducedMotion }:
           <Text
             style={[
               styles.timer,
-              { color: active ? theme.signal : theme.text, fontFamily: font.mono },
+              { color: active ? theme.signal : theme.text, fontFamily: font.mono, fontSize: Math.round(size * 0.16) },
             ]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
             accessibilityLabel={label}
           >
             {label}
@@ -121,7 +123,6 @@ export function TimerArc({ progress, label, active, size = 264, reducedMotion }:
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   timer: {
-    fontSize: 46,
     letterSpacing: 1,
     fontVariant: ["tabular-nums"],
   },

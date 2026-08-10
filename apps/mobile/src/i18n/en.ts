@@ -16,6 +16,7 @@ export const en = {
     genericError: "Could not sign in. Check your connection and try again.",
     noAccount: "New here? Create an account",
     haveAccount: "Already have an account? Sign in",
+    or: "or",
   },
   register: {
     title: "Create account",
@@ -27,6 +28,11 @@ export const en = {
     invalidCode: "That company code doesn’t exist. Check it with your employer.",
     error: "Could not create the account. Try again.",
     exists: "An account with this email already exists.",
+  },
+  pending: {
+    title: "Waiting for approval",
+    body: "Your employer needs to accept you into the company. You’ll get in as soon as they do.",
+    recheck: "Check again",
   },
   consent: {
     title: "Location at start and finish",

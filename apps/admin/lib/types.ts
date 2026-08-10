@@ -6,6 +6,7 @@ export interface Profile {
   phone: string | null;
   role: "worker" | "admin";
   is_active: boolean;
+  is_approved: boolean;
   locale: string;
   hourly_rate: number | null;
   self_hourly_rate: number | null;

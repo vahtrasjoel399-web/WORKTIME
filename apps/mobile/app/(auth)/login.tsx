@@ -1,9 +1,11 @@
 import React, { useState } from "react";
-import { View, TextInput, StyleSheet, Pressable, KeyboardAvoidingView, Platform } from "react-native";
+import { View, TextInput, StyleSheet, Pressable, KeyboardAvoidingView, Platform, ScrollView } from "react-native";
 import { router, Link } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useTheme } from "@/theme/ThemeProvider";
 import { Screen, Title, Muted, Body, SegRow } from "@/components/ui";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { useLocale } from "@/i18n/LocaleProvider";
 import { font, radius, space } from "@/theme/tokens";
 import { t } from "@/i18n";
 
@@ -11,6 +13,7 @@ type Method = "email" | "phone";
 
 export default function Login() {
   const { theme } = useTheme();
+  useLocale(); // subscribe so switching language re-renders this screen
   const [method, setMethod] = useState<Method>("email");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -54,85 +57,62 @@ export default function Login() {
 
   return (
     <Screen>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={styles.wrap}
-      >
-        <View style={{ gap: space(2) }}>
-          <Title style={{ fontSize: 34 }}>{t("auth.title")}</Title>
-          <Muted>{t("auth.subtitle")}</Muted>
-        </View>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={styles.wrap} keyboardShouldPersistTaps="handled">
+          <LanguageSwitcher />
 
-        <SegRow<Method>
-          value={method}
-          onChange={(m) => {
-            setMethod(m);
-            setError(null);
-          }}
-          options={[
-            { value: "email", label: t("auth.withEmail") },
-            { value: "phone", label: t("auth.withPhone") },
-          ]}
-        />
-
-        {method === "email" ? (
-          <View style={{ gap: space(3) }}>
-            <TextInput
-              style={inputStyle}
-              placeholder={t("auth.email")}
-              placeholderTextColor={theme.textMuted}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              value={email}
-              onChangeText={setEmail}
-            />
-            <TextInput
-              style={inputStyle}
-              placeholder={t("auth.password")}
-              placeholderTextColor={theme.textMuted}
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-            />
-            <PrimaryButton label={t("auth.signIn")} onPress={signInEmail} busy={busy} />
+          <View style={{ gap: space(2) }}>
+            <Title style={{ fontSize: 32 }}>{t("auth.title")}</Title>
+            <Muted>{t("auth.subtitle")}</Muted>
           </View>
-        ) : (
-          <View style={{ gap: space(3) }}>
-            <TextInput
-              style={inputStyle}
-              placeholder={t("auth.phone")}
-              placeholderTextColor={theme.textMuted}
-              keyboardType="phone-pad"
-              value={phone}
-              onChangeText={setPhone}
-              editable={!codeSent}
-            />
-            {codeSent && (
-              <TextInput
-                style={inputStyle}
-                placeholder={t("auth.code")}
-                placeholderTextColor={theme.textMuted}
-                keyboardType="number-pad"
-                value={code}
-                onChangeText={setCode}
-              />
-            )}
-            <PrimaryButton
-              label={codeSent ? t("auth.verify") : t("auth.sendCode")}
-              onPress={codeSent ? verifyCode : sendCode}
-              busy={busy}
-            />
-            {codeSent && <Muted>{t("auth.codeSent")}</Muted>}
+
+          <SegRow<Method>
+            value={method}
+            onChange={(m) => {
+              setMethod(m);
+              setError(null);
+            }}
+            options={[
+              { value: "email", label: t("auth.withEmail") },
+              { value: "phone", label: t("auth.withPhone") },
+            ]}
+          />
+
+          {method === "email" ? (
+            <View style={{ gap: space(3) }}>
+              <TextInput style={inputStyle} placeholder={t("auth.email")} placeholderTextColor={theme.textMuted} autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} />
+              <TextInput style={inputStyle} placeholder={t("auth.password")} placeholderTextColor={theme.textMuted} secureTextEntry value={password} onChangeText={setPassword} />
+              <PrimaryButton label={t("auth.signIn")} onPress={signInEmail} busy={busy} />
+            </View>
+          ) : (
+            <View style={{ gap: space(3) }}>
+              <TextInput style={inputStyle} placeholder={t("auth.phone")} placeholderTextColor={theme.textMuted} keyboardType="phone-pad" value={phone} onChangeText={setPhone} editable={!codeSent} />
+              {codeSent && (
+                <TextInput style={inputStyle} placeholder={t("auth.code")} placeholderTextColor={theme.textMuted} keyboardType="number-pad" value={code} onChangeText={setCode} />
+              )}
+              <PrimaryButton label={codeSent ? t("auth.verify") : t("auth.sendCode")} onPress={codeSent ? verifyCode : sendCode} busy={busy} />
+              {codeSent && <Muted>{t("auth.codeSent")}</Muted>}
+            </View>
+          )}
+
+          {error && <Body style={{ color: theme.alert }}>{error}</Body>}
+
+          {/* prominent Sign Up */}
+          <View style={{ gap: space(2), marginTop: space(2) }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: space(3) }}>
+              <View style={{ flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: theme.border }} />
+              <Muted>{t("auth.or")}</Muted>
+              <View style={{ flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: theme.border }} />
+            </View>
+            <Link href="/(auth)/register" asChild>
+              <Pressable style={[styles.signup, { borderColor: theme.signal }]}>
+                <Body style={{ color: theme.signal, fontFamily: font.textSemibold, fontSize: 16 }}>
+                  {t("register.title")}
+                </Body>
+              </Pressable>
+            </Link>
           </View>
-        )}
-
-        {error && <Body style={{ color: theme.alert }}>{error}</Body>}
-
-        <Link href="/(auth)/register" asChild>
-          <Pressable style={{ alignItems: "center", paddingVertical: space(2) }}>
-            <Muted>{t("auth.noAccount")}</Muted>
-          </Pressable>
-        </Link>
+        </ScrollView>
       </KeyboardAvoidingView>
     </Screen>
   );
@@ -141,18 +121,14 @@ export default function Login() {
 function PrimaryButton({ label, onPress, busy }: { label: string; onPress: () => void; busy?: boolean }) {
   const { theme } = useTheme();
   return (
-    <Pressable
-      onPress={onPress}
-      disabled={busy}
-      style={[styles.primary, { backgroundColor: theme.text, opacity: busy ? 0.6 : 1 }]}
-    >
+    <Pressable onPress={onPress} disabled={busy} style={[styles.primary, { backgroundColor: theme.text, opacity: busy ? 0.6 : 1 }]}>
       <Body style={{ color: theme.bg, fontFamily: font.textSemibold, fontSize: 16 }}>{label}</Body>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, padding: space(6), justifyContent: "center", gap: space(6) },
+  wrap: { flexGrow: 1, padding: space(6), justifyContent: "center", gap: space(5) },
   input: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: radius.md,
@@ -160,9 +136,11 @@ const styles = StyleSheet.create({
     paddingVertical: space(4),
     fontSize: 16,
   },
-  primary: {
+  primary: { borderRadius: radius.md, paddingVertical: space(4), alignItems: "center" },
+  signup: {
     borderRadius: radius.md,
     paddingVertical: space(4),
     alignItems: "center",
+    borderWidth: 1.5,
   },
 });

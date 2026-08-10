@@ -18,6 +18,7 @@ export const fi: Messages = {
     genericError: "Kirjautuminen epäonnistui. Tarkista yhteys ja yritä uudelleen.",
     noAccount: "Uusi käyttäjä? Luo tili",
     haveAccount: "Onko sinulla jo tili? Kirjaudu",
+    or: "tai",
   },
   register: {
     title: "Luo tili",
@@ -29,6 +30,11 @@ export const fi: Messages = {
     invalidCode: "Yrityskoodia ei löydy. Tarkista se työnantajaltasi.",
     error: "Tilin luonti epäonnistui. Yritä uudelleen.",
     exists: "Tämä sähköposti on jo käytössä.",
+  },
+  pending: {
+    title: "Odottaa hyväksyntää",
+    body: "Työnantajan on hyväksyttävä sinut yritykseen. Pääset sisään heti kun hän tekee sen.",
+    recheck: "Tarkista uudelleen",
   },
   consent: {
     title: "Sijainti alussa ja lopussa",

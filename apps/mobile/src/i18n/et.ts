@@ -18,6 +18,7 @@ export const et: Messages = {
     genericError: "Sisselogimine ebaõnnestus. Kontrolli ühendust ja proovi uuesti.",
     noAccount: "Uus kasutaja? Loo konto",
     haveAccount: "Konto juba olemas? Logi sisse",
+    or: "või",
   },
   register: {
     title: "Loo konto",
@@ -29,6 +30,11 @@ export const et: Messages = {
     invalidCode: "Sellist ettevõtte koodi pole. Kontrolli seda tööandjaga.",
     error: "Konto loomine ebaõnnestus. Proovi uuesti.",
     exists: "Selle e-postiga konto on juba olemas.",
+  },
+  pending: {
+    title: "Ootab kinnitust",
+    body: "Tööandja peab sind ettevõttesse vastu võtma. Pääsed sisse kohe, kui ta seda teeb.",
+    recheck: "Kontrolli uuesti",
   },
   consent: {
     title: "Asukoht alustamisel ja lõpetamisel",

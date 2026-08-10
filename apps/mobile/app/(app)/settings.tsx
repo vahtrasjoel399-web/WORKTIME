@@ -3,11 +3,13 @@ import { View, StyleSheet, Switch, TextInput, Pressable, ScrollView } from "reac
 import { useTheme } from "@/theme/ThemeProvider";
 import { Screen, Title, Muted, Body, Card, SegRow } from "@/components/ui";
 import { useSession } from "@/state/session";
-import { setLocale, t, type Locale } from "@/i18n";
+import { useLocale } from "@/i18n/LocaleProvider";
+import { t, type Locale } from "@/i18n";
 import { font, radius, space } from "@/theme/tokens";
 
 export default function Settings() {
   const { theme, pref, setPref } = useTheme();
+  const { change: changeLocale } = useLocale();
   const { profile, updateProfile, signOut } = useSession();
   const [rate, setRate] = useState(
     profile?.self_hourly_rate != null ? String(profile.self_hourly_rate) : "",
@@ -97,7 +99,7 @@ export default function Settings() {
           <SegRow<Locale>
             value={(profile?.locale as Locale) ?? "et"}
             onChange={(l) => {
-              void setLocale(l);
+              void changeLocale(l);
               updateProfile({ locale: l });
             }}
             options={[
