@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 import { toggleTheme } from "./ThemeInit";
+import { useI18n, LangSwitcher } from "./I18nProvider";
 import { resolveEarnings } from "@/lib/report";
 import { money, hours1 } from "@/lib/format";
 import type { Profile } from "@/lib/types";
@@ -51,6 +52,7 @@ export function WorkerHome({
 }) {
   const supabase = supabaseBrowser();
   const router = useRouter();
+  const { t } = useI18n();
 
   const [shift, setShift] = useState<Shift | null>(openShift);
   const [phase, setPhase] = useState<"idle" | "running" | "onBreak">(openShift ? "running" : "idle");
@@ -83,11 +85,12 @@ export function WorkerHome({
   if (!approved) {
     return (
       <Centered>
+        <LangSwitcher />
         <div className="text-5xl">⏳</div>
-        <h1 className="font-display text-2xl font-bold">Ожидает подтверждения</h1>
-        <p className="text-muted">Работодатель должен принять вас в компанию. Как только примет — вы сможете начать смену.</p>
+        <h1 className="font-display text-2xl font-bold">{t("pendingTitle")}</h1>
+        <p className="text-muted">{t("pendingBody")}</p>
         <div className="flex gap-2">
-          <button onClick={() => router.refresh()} className="rounded-lg bg-text px-5 py-2.5 font-semibold text-bg">Проверить снова</button>
+          <button onClick={() => router.refresh()} className="rounded-lg bg-text px-5 py-2.5 font-semibold text-bg">{t("checkAgain")}</button>
           <SignOut />
         </div>
       </Centered>
@@ -157,7 +160,7 @@ export function WorkerHome({
       <div className="flex items-center justify-between">
         <div>
           <div className="font-display text-xl font-bold">{profile.first_name}</div>
-          <div className="text-sm text-muted">{active ? (phase === "onBreak" ? "На перерыве" : "Смена идёт") : "Смена не начата"}</div>
+          <div className="text-sm text-muted">{active ? (phase === "onBreak" ? t("onBreak") : t("shiftRunning")) : t("notStarted")}</div>
         </div>
         <div className="flex items-center gap-2">
           {gps === "ok" && <span className="text-xs text-live">● GPS</span>}
@@ -168,16 +171,17 @@ export function WorkerHome({
 
       {showSettings && (
         <div className="space-y-3 rounded-2xl border border-border bg-surface p-4 text-sm">
+          <LangSwitcher />
           {profile.hourly_rate != null ? (
-            <div><span className="text-muted">Ставка (задана работодателем): </span><b className="tabular">{money(profile.hourly_rate, profile.currency)}/ч</b></div>
+            <div><span className="text-muted">{t("rateByEmployer")}: </span><b className="tabular">{money(profile.hourly_rate, profile.currency)}/{t("hoursUnit")}</b></div>
           ) : (
-            <label className="block"><span className="text-muted">Ваша ставка €/ч</span>
+            <label className="block"><span className="text-muted">{t("yourRate")}</span>
               <input value={rate} onChange={(e) => setRate(e.target.value)} placeholder="0.00" className="mt-1 w-full rounded-lg border border-border bg-bg px-3 py-2" /></label>
           )}
-          <label className="flex items-center gap-2"><input type="checkbox" checked={showEarn} onChange={(e) => setShowEarn(e.target.checked)} /> Показывать заработок</label>
+          <label className="flex items-center gap-2"><input type="checkbox" checked={showEarn} onChange={(e) => setShowEarn(e.target.checked)} /> {t("showEarnings")}</label>
           <div className="flex gap-2">
-            <button onClick={saveSettings} className="flex-1 rounded-lg bg-text py-2 font-semibold text-bg">Сохранить</button>
-            <button onClick={toggleTheme} className="rounded-lg border border-border px-3">◐ тема</button>
+            <button onClick={saveSettings} className="flex-1 rounded-lg bg-text py-2 font-semibold text-bg">{t("save")}</button>
+            <button onClick={toggleTheme} className="rounded-lg border border-border px-3">◐ {t("theme")}</button>
           </div>
           <SignOut />
         </div>
@@ -198,7 +202,7 @@ export function WorkerHome({
         {active && showEarn && rateRes.rate != null && (
           <div className="text-center">
             <div className="tabular text-2xl font-semibold text-signal">{money(rateRes.amount, profile.currency)}</div>
-            <div className="text-xs text-muted">{rateRes.source === "company" ? "по ставке компании" : "личная оценка"} · до налогов, ориентировочно</div>
+            <div className="text-xs text-muted">{rateRes.source === "company" ? t("companyRate") : t("personalEstimate")} · {t("beforeTax")}</div>
           </div>
         )}
       </div>
@@ -207,25 +211,25 @@ export function WorkerHome({
       <div className="flex flex-col items-center gap-3">
         {!active ? (
           <button onClick={start} disabled={busy} className="h-28 w-28 rounded-full bg-text px-2 text-center text-base font-semibold leading-tight text-bg disabled:opacity-60">
-            {busy ? "…" : "Начать смену"}
+            {busy ? "…" : t("startShift")}
           </button>
         ) : (
           <>
             <button onClick={finish} disabled={busy} className="h-28 w-28 rounded-full bg-signal px-2 text-center text-base font-semibold leading-tight text-[#0B1320] disabled:opacity-60">
-              {busy ? "…" : "Закончить смену"}
+              {busy ? "…" : t("finishShift")}
             </button>
             <button onClick={toggleBreak} className="rounded-full border border-border px-6 py-2 text-sm">
-              {phase === "onBreak" ? "Продолжить" : "Перерыв"}
+              {phase === "onBreak" ? t("resume") : t("pause")}
             </button>
           </>
         )}
-        {gps === "denied" && <p className="text-sm text-alert">Геолокация выключена. Включите её в браузере, чтобы начать смену.</p>}
+        {gps === "denied" && <p className="text-sm text-alert">{t("gpsDenied")}</p>}
       </div>
 
       {/* month total */}
       <div className="rounded-2xl border border-border bg-surface p-4 text-center">
-        <div className="text-sm text-muted">Всего за месяц</div>
-        <div className="tabular text-2xl font-semibold">{hours1(monthSeconds)} ч</div>
+        <div className="text-sm text-muted">{t("monthTotal")}</div>
+        <div className="tabular text-2xl font-semibold">{hours1(monthSeconds)} {t("hoursUnit")}</div>
         {showEarn && monthEarn.rate != null && <div className="text-sm text-muted">{money(monthEarn.amount, profile.currency)}</div>}
       </div>
     </div>
@@ -239,15 +243,17 @@ function Centered({ children }: { children: React.ReactNode }) {
 function SignOut() {
   const supabase = supabaseBrowser();
   const router = useRouter();
+  const { t } = useI18n();
   return (
     <button onClick={async () => { await supabase.auth.signOut(); router.push("/login"); router.refresh(); }} className="rounded-lg border border-border px-4 py-2 text-sm text-muted">
-      Выйти
+      {t("signOut")}
     </button>
   );
 }
 
 function Consent({ userId, onDone }: { userId: string; onDone: () => void }) {
   const supabase = supabaseBrowser();
+  const { t } = useI18n();
   const [busy, setBusy] = useState(false);
   async function agree() {
     setBusy(true);
@@ -256,9 +262,10 @@ function Consent({ userId, onDone }: { userId: string; onDone: () => void }) {
   }
   return (
     <Centered>
-      <h1 className="font-display text-2xl font-bold">Геолокация при старте и завершении</h1>
-      <p className="text-muted">Приложение фиксирует местоположение только в два момента: когда вы начинаете и заканчиваете смену. В фоне и между этими моментами отслеживания нет. Точки хранятся 24 месяца.</p>
-      <button onClick={agree} disabled={busy} className="rounded-lg bg-live px-6 py-3 font-semibold text-white disabled:opacity-60">Согласен</button>
+      <LangSwitcher />
+      <h1 className="font-display text-2xl font-bold">{t("consentTitle")}</h1>
+      <p className="text-muted">{t("consentBody")}</p>
+      <button onClick={agree} disabled={busy} className="rounded-lg bg-live px-6 py-3 font-semibold text-white disabled:opacity-60">{t("agree")}</button>
     </Centered>
   );
 }
