@@ -14,7 +14,8 @@ const links = [
 export function Nav() {
   const path = usePathname();
   const router = useRouter();
-  if (path.startsWith("/login")) return null;
+  // no admin nav on the login or worker screens
+  if (path.startsWith("/login") || path.startsWith("/me")) return null;
 
   async function signOut() {
     await supabaseBrowser().auth.signOut();

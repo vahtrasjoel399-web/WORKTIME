@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase-server";
+import { getProfile } from "@/lib/auth";
 import { hours1, money } from "@/lib/format";
 import { AddWorker } from "@/components/AddWorker";
 import { PendingWorkers } from "@/components/PendingWorkers";
@@ -8,6 +10,10 @@ import type { Profile } from "@/lib/types";
 export const dynamic = "force-dynamic";
 
 export default async function WorkersPage() {
+  const me = await getProfile();
+  if (!me) redirect("/login");
+  if (me.role !== "admin") redirect("/me"); // workers get their own screen
+
   const supabase = supabaseServer();
   const now = new Date();
   const from = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1)).toISOString();

@@ -12,6 +12,7 @@ export interface Profile {
   self_hourly_rate: number | null;
   currency: string;
   target_shift_hours: number;
+  show_earnings: boolean;
 }
 
 export interface Site {
