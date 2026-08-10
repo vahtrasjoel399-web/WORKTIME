@@ -1,0 +1,19 @@
+{
+  "name": "tooaeg",
+  "private": true,
+  "version": "0.1.0",
+  "description": "GPS time tracking for construction crews — Expo mobile app + Next.js employer panel on Supabase",
+  "workspaces": [
+    "apps/mobile",
+    "apps/admin"
+  ],
+  "scripts": {
+    "mobile": "npm run start --workspace apps/mobile",
+    "admin": "npm run dev --workspace apps/admin",
+    "db:push": "supabase db push",
+    "db:reset": "supabase db reset"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

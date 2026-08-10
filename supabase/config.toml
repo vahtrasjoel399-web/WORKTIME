@@ -1,0 +1,28 @@
+# Minimal Supabase CLI config. `supabase start` / `supabase db reset` read this.
+project_id = "tooaeg"
+
+[db]
+port = 54322
+major_version = 15
+
+[api]
+port = 54321
+schemas = ["public"]
+extra_search_path = ["public"]
+
+[auth]
+enable_signup = true           # self-service registration (company code gates workers)
+site_url = "http://localhost:3000"
+
+[auth.email]
+enable_signup = true
+enable_confirmations = false   # set true in production once you configure an email sender
+
+[auth.sms]
+enable_signup = false          # phone OTP: enable + configure a provider in the dashboard
+
+[functions.close-stale-shifts]
+verify_jwt = false             # guarded by CRON_SECRET instead
+
+[functions.gdpr-worker]
+verify_jwt = false             # verifies caller admin-ness internally

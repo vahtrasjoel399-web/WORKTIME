@@ -1,0 +1,67 @@
+@import url("https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;900&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Light / dark token pairs — spec §4. Accents in light are the darker variants
+   for >=4.5:1 contrast on white. */
+:root {
+  --bg: #edf1f5;
+  --surface: #ffffff;
+  --text: #0b1320;
+  --text-muted: #5a6b7c;
+  --border: #d3dbe3;
+  --signal: #e09000;
+  --live: #1fa35c;
+  --alert: #c8433a;
+}
+
+.dark {
+  --bg: #0b1320;
+  --surface: #141d2b;
+  --text: #edf1f5;
+  --text-muted: #8296a8;
+  --border: #22303f;
+  --signal: #ffb020;
+  --live: #2fbf71;
+  --alert: #e2574c;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* tabular figures everywhere numbers live */
+.tabular {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* list stagger entrance */
+@keyframes riseIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.rise {
+  animation: riseIn 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rise {
+    animation: none;
+  }
+}
+
+/* MapLibre dark tweaks */
+.maplibregl-ctrl-attrib {
+  font-size: 10px;
+}

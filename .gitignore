@@ -1,0 +1,39 @@
+# deps
+node_modules/
+.pnp
+.pnp.js
+
+# env
+.env
+.env.local
+.env*.local
+!.env.example
+
+# expo
+apps/mobile/.expo/
+apps/mobile/dist/
+apps/mobile/web-build/
+*.orig.*
+apps/mobile/ios/
+apps/mobile/android/
+
+# next
+apps/admin/.next/
+apps/admin/out/
+apps/admin/build/
+
+# supabase local
+supabase/.branches/
+supabase/.temp/
+
+# misc
+.DS_Store
+*.log
+npm-debug.log*
+.vscode/
+.idea/
+coverage/
+
+# local dev artifacts (not for the repo)
+apps/mobile/expo-qr.png
+dist/

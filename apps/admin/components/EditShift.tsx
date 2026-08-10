@@ -1,0 +1,101 @@
+"use client";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { supabaseBrowser } from "@/lib/supabase-browser";
+
+interface ShiftLite {
+  id: string;
+  started_at: string;
+  ended_at: string | null;
+  break_seconds: number;
+  status: "open" | "closed";
+}
+
+// Manual correction with audit trail: every changed field is written to shift_edits
+// as (field, old_value, new_value, edited_by). (spec §1, DECISIONS D-010)
+function toLocalInput(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const off = d.getTimezoneOffset();
+  return new Date(d.getTime() - off * 60000).toISOString().slice(0, 16);
+}
+
+export function EditShift({ shift }: { shift: ShiftLite }) {
+  const supabase = supabaseBrowser();
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [start, setStart] = useState(toLocalInput(shift.started_at));
+  const [end, setEnd] = useState(toLocalInput(shift.ended_at));
+  const [breakMin, setBreakMin] = useState(String(Math.round(shift.break_seconds / 60)));
+  const [busy, setBusy] = useState(false);
+
+  async function save() {
+    setBusy(true);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const newStart = new Date(start).toISOString();
+    const newEnd = end ? new Date(end).toISOString() : null;
+    const newBreak = Math.max(0, parseInt(breakMin || "0", 10)) * 60;
+
+    const edits: { field: string; old_value: string | null; new_value: string | null }[] = [];
+    if (newStart !== shift.started_at) edits.push({ field: "started_at", old_value: shift.started_at, new_value: newStart });
+    if (newEnd !== shift.ended_at) edits.push({ field: "ended_at", old_value: shift.ended_at, new_value: newEnd });
+    if (newBreak !== shift.break_seconds)
+      edits.push({ field: "break_seconds", old_value: String(shift.break_seconds), new_value: String(newBreak) });
+
+    if (edits.length > 0) {
+      await supabase
+        .from("shifts")
+        .update({
+          started_at: newStart,
+          ended_at: newEnd,
+          break_seconds: newBreak,
+          status: newEnd ? "closed" : "open",
+          source: "manual",
+          is_stale: false,
+        })
+        .eq("id", shift.id);
+      await supabase.from("shift_edits").insert(
+        edits.map((e) => ({ shift_id: shift.id, edited_by: user.id, ...e })),
+      );
+    }
+    setBusy(false);
+    setOpen(false);
+    router.refresh();
+  }
+
+  if (!open)
+    return (
+      <button onClick={() => setOpen(true)} className="text-xs text-muted underline hover:text-signal">
+        Muuda
+      </button>
+    );
+
+  return (
+    <div className="mt-2 space-y-2 rounded-lg border border-border bg-bg p-3 text-sm">
+      <label className="flex items-center justify-between gap-2">
+        <span className="text-muted">Algus</span>
+        <input type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)} className="rounded border border-border bg-surface px-2 py-1" />
+      </label>
+      <label className="flex items-center justify-between gap-2">
+        <span className="text-muted">Lõpp</span>
+        <input type="datetime-local" value={end} onChange={(e) => setEnd(e.target.value)} className="rounded border border-border bg-surface px-2 py-1" />
+      </label>
+      <label className="flex items-center justify-between gap-2">
+        <span className="text-muted">Paus (min)</span>
+        <input type="number" value={breakMin} onChange={(e) => setBreakMin(e.target.value)} className="w-24 rounded border border-border bg-surface px-2 py-1" />
+      </label>
+      <div className="flex gap-2 pt-1">
+        <button onClick={save} disabled={busy} className="flex-1 rounded bg-text py-1.5 font-medium text-bg">
+          Salvesta
+        </button>
+        <button onClick={() => setOpen(false)} className="flex-1 rounded border border-border py-1.5">
+          Tühista
+        </button>
+      </div>
+    </div>
+  );
+}
