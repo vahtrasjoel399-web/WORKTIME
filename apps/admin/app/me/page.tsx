@@ -34,7 +34,7 @@ export default async function MePage() {
       profile={profile}
       openShift={open ?? null}
       monthShifts={(month ?? []) as unknown as ShiftReport[]}
-      approved={profile.is_approved}
+      approved={profile.is_approved !== false}
       hasConsent={(consentCount ?? 0) > 0}
     />
   );

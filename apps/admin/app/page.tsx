@@ -41,8 +41,8 @@ export default async function WorkersPage() {
   }
 
   const all = (workers ?? []) as Profile[];
-  const pending = all.filter((w) => !w.is_approved);
-  const list = all.filter((w) => w.is_approved);
+  const pending = all.filter((w) => w.is_approved === false);
+  const list = all.filter((w) => w.is_approved !== false);
   const onShift = list.filter((w) => openBy.has(w.id)).length;
 
   return (
