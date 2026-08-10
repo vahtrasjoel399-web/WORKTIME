@@ -60,9 +60,9 @@ export default async function WorkerCard({
   const markers = shifts.flatMap((s) => {
     const m = [];
     if (s.start_lat != null && s.start_lng != null)
-      m.push({ lat: s.start_lat, lng: s.start_lng, color: s.out_of_zone ? "#E2574C" : "#2FBF71", label: `${dmy(s.started_at)} algus` });
+      m.push({ lat: s.start_lat, lng: s.start_lng, color: s.out_of_zone ? "#E2574C" : "#2FBF71", label: `${dmy(s.started_at)} · algus ${hm(s.started_at)}` });
     if (s.end_lat != null && s.end_lng != null)
-      m.push({ lat: s.end_lat, lng: s.end_lng, color: "#5A6B7C", label: `${dmy(s.started_at)} lõpp` });
+      m.push({ lat: s.end_lat, lng: s.end_lng, color: "#5A6B7C", label: `${dmy(s.started_at)} · lõpp ${hm(s.ended_at)}` });
     return m;
   });
 

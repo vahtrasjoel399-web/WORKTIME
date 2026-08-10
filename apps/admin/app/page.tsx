@@ -5,6 +5,7 @@ import { getProfile } from "@/lib/auth";
 import { hours1, money } from "@/lib/format";
 import { AddWorker } from "@/components/AddWorker";
 import { PendingWorkers } from "@/components/PendingWorkers";
+import { DeleteWorker } from "@/components/DeleteWorker";
 import type { Profile } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -73,15 +74,16 @@ export default async function WorkersPage() {
 
       <PendingWorkers pending={pending} />
 
-      <div className="overflow-hidden rounded-2xl border border-border bg-surface">
+      <div className="overflow-x-auto rounded-2xl border border-border bg-surface">
         <table className="w-full text-sm">
           <thead className="border-b border-border text-left text-muted">
             <tr>
-              <th className="px-4 py-3 font-medium">Nimi</th>
-              <th className="px-4 py-3 font-medium">Olek</th>
-              <th className="px-4 py-3 font-medium">Objekt</th>
-              <th className="px-4 py-3 text-right font-medium">Tunnid (kuu)</th>
-              <th className="px-4 py-3 text-right font-medium">Tunnitasu</th>
+              <th className="px-3 py-3 font-medium sm:px-4">Nimi</th>
+              <th className="px-3 py-3 font-medium sm:px-4">Olek</th>
+              <th className="hidden px-4 py-3 font-medium sm:table-cell">Objekt</th>
+              <th className="px-3 py-3 text-right font-medium sm:px-4">Tunnid</th>
+              <th className="hidden px-4 py-3 text-right font-medium sm:table-cell">Tunnitasu</th>
+              <th className="px-3 py-3 sm:px-4"></th>
             </tr>
           </thead>
           <tbody>
@@ -94,13 +96,13 @@ export default async function WorkersPage() {
                   className="rise border-b border-border last:border-0 hover:bg-bg"
                   style={{ animationDelay: `${i * 30}ms` }}
                 >
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-3 sm:px-4">
                     <Link href={`/workers/${w.id}`} className="font-medium hover:text-signal">
                       {w.first_name} {w.last_name}
                     </Link>
                     {!w.is_active && <span className="ml-2 text-xs text-muted">(deaktiveeritud)</span>}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-3 sm:px-4">
                     {open ? (
                       <span className="inline-flex items-center gap-1.5 text-signal">
                         <span className="h-2 w-2 animate-pulse rounded-full bg-signal" /> Vahetuses
@@ -109,12 +111,15 @@ export default async function WorkersPage() {
                       <span className="text-muted">Vaba</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-muted">
+                  <td className="hidden px-4 py-3 text-muted sm:table-cell">
                     {open?.site_id ? siteName.get(open.site_id) ?? "—" : "—"}
                   </td>
-                  <td className="px-4 py-3 text-right tabular">{hours1(secs)}</td>
-                  <td className="px-4 py-3 text-right text-muted">
+                  <td className="px-3 py-3 text-right tabular sm:px-4">{hours1(secs)}</td>
+                  <td className="hidden px-4 py-3 text-right text-muted sm:table-cell">
                     {w.hourly_rate != null ? money(w.hourly_rate, w.currency) : "—"}
+                  </td>
+                  <td className="px-3 py-3 text-right sm:px-4">
+                    <DeleteWorker id={w.id} name={`${w.first_name} ${w.last_name}`} />
                   </td>
                 </tr>
               );

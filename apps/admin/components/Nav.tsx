@@ -25,18 +25,18 @@ export function Nav() {
 
   return (
     <header className="sticky top-0 z-20 border-b border-border bg-surface/90 backdrop-blur">
-      <div className="mx-auto flex max-w-6xl items-center gap-6 px-5 py-3">
-        <Link href="/" className="font-display text-lg font-bold tracking-tight">
+      <div className="mx-auto flex max-w-6xl items-center gap-2 px-4 py-2.5 sm:gap-4 sm:px-5">
+        <Link href="/" className="shrink-0 font-display text-lg font-bold tracking-tight">
           Tööaeg
         </Link>
-        <nav className="flex flex-1 items-center gap-1">
+        <nav className="flex flex-1 items-center gap-1 overflow-x-auto no-scrollbar">
           {links.map((l) => {
             const active = l.href === "/" ? path === "/" : path.startsWith(l.href);
             return (
               <Link
                 key={l.href}
                 href={l.href}
-                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                className={`shrink-0 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-sm font-medium transition ${
                   active ? "bg-bg text-text" : "text-muted hover:text-text"
                 }`}
               >
@@ -47,13 +47,13 @@ export function Nav() {
         </nav>
         <button
           onClick={toggleTheme}
-          className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted hover:text-text"
+          className="shrink-0 rounded-lg border border-border px-2.5 py-1.5 text-sm text-muted hover:text-text"
           aria-label="Vaheta teemat"
         >
           ◐
         </button>
-        <button onClick={signOut} className="text-sm text-muted hover:text-alert">
-          Logi välja
+        <button onClick={signOut} className="shrink-0 whitespace-nowrap text-sm text-muted hover:text-alert">
+          Välja
         </button>
       </div>
     </header>
