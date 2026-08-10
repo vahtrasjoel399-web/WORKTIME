@@ -1,12 +1,18 @@
 import "./globals.css";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Nav } from "@/components/Nav";
 import { ThemeInit } from "@/components/ThemeInit";
 import { I18nProvider } from "@/components/I18nProvider";
 
 export const metadata: Metadata = {
-  title: "Tööaeg — tööandja töölaud",
-  description: "GPS-põhine tööaja arvestus ehitusettevõttele",
+  title: "Tööaeg",
+  description: "Учёт рабочего времени · GPS",
+  applicationName: "Tööaeg",
+  appleWebApp: { capable: true, title: "Tööaeg", statusBarStyle: "default" },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0B1320",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
