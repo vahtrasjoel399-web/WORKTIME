@@ -4,8 +4,7 @@
   "version": "0.1.0",
   "description": "GPS time tracking for construction crews — Expo mobile app + Next.js employer panel on Supabase",
   "workspaces": [
-    "apps/mobile",
-    "apps/admin"
+    "apps/mobile"
   ],
   "scripts": {
     "mobile": "npm run start --workspace apps/mobile",
