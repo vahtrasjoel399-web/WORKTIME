@@ -60,6 +60,7 @@ export function WorkerHome({
   const [busy, setBusy] = useState(false);
   const [gps, setGps] = useState<"idle" | "getting" | "ok" | "denied">("idle");
   const [showSettings, setShowSettings] = useState(false);
+  const [view, setView] = useState<"shift" | "hours">("shift");
   const [rate, setRate] = useState(profile.self_hourly_rate != null ? String(profile.self_hourly_rate) : "");
   const [showEarn, setShowEarn] = useState(profile.show_earnings ?? true);
   const breakAccum = useRef(openShift?.break_seconds ?? 0);
@@ -187,53 +188,97 @@ export function WorkerHome({
         </div>
       )}
 
-      {/* timer */}
-      <div className="flex flex-col items-center gap-4">
-        <div className="relative flex h-64 w-64 items-center justify-center">
-          <svg className="absolute inset-0 -rotate-90" viewBox="0 0 100 100">
-            <circle cx="50" cy="50" r="45" fill="none" stroke="var(--border)" strokeWidth="6" />
-            <circle cx="50" cy="50" r="45" fill="none" stroke={active ? "var(--signal)" : "var(--text-muted)"} strokeWidth="6"
-              strokeLinecap="round" strokeDasharray={2 * Math.PI * 45} strokeDashoffset={2 * Math.PI * 45 * (1 - pct / 100)}
-              style={{ transition: "stroke-dashoffset 0.6s ease" }} />
-          </svg>
-          <div className={`tabular text-4xl font-semibold ${active ? "text-signal" : "text-text"}`}>{hms(seconds)}</div>
-        </div>
+      {/* tabs */}
+      <div className="flex gap-1 rounded-lg bg-surface p-1">
+        <button onClick={() => setView("shift")} className={`flex-1 rounded-md py-2 text-sm ${view === "shift" ? "bg-bg font-medium" : "text-muted"}`}>{t("tabShift")}</button>
+        <button onClick={() => setView("hours")} className={`flex-1 rounded-md py-2 text-sm ${view === "hours" ? "bg-bg font-medium" : "text-muted"}`}>{t("tabHours")}</button>
+      </div>
 
-        {active && showEarn && rateRes.rate != null && (
-          <div className="text-center">
-            <div className="tabular text-2xl font-semibold text-signal">{money(rateRes.amount, profile.currency)}</div>
-            <div className="text-xs text-muted">{rateRes.source === "company" ? t("companyRate") : t("personalEstimate")} · {t("beforeTax")}</div>
+      {view === "shift" ? (
+        <>
+          {/* timer */}
+          <div className="flex flex-col items-center gap-4">
+            <div className="relative flex h-64 w-64 items-center justify-center">
+              <svg className="absolute inset-0 -rotate-90" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="45" fill="none" stroke="var(--border)" strokeWidth="6" />
+                <circle cx="50" cy="50" r="45" fill="none" stroke={active ? "var(--signal)" : "var(--text-muted)"} strokeWidth="6"
+                  strokeLinecap="round" strokeDasharray={2 * Math.PI * 45} strokeDashoffset={2 * Math.PI * 45 * (1 - pct / 100)}
+                  style={{ transition: "stroke-dashoffset 0.6s ease" }} />
+              </svg>
+              <div className={`tabular text-4xl font-semibold ${active ? "text-signal" : "text-text"}`}>{hms(seconds)}</div>
+            </div>
+
+            {active && showEarn && rateRes.rate != null && (
+              <div className="text-center">
+                <div className="tabular text-2xl font-semibold text-signal">{money(rateRes.amount, profile.currency)}</div>
+                <div className="text-xs text-muted">{rateRes.source === "company" ? t("companyRate") : t("personalEstimate")} · {t("beforeTax")}</div>
+              </div>
+            )}
           </div>
-        )}
-      </div>
 
-      {/* actions */}
-      <div className="flex flex-col items-center gap-3">
-        {!active ? (
-          <button onClick={start} disabled={busy} className="h-28 w-28 rounded-full bg-text px-2 text-center text-base font-semibold leading-tight text-bg disabled:opacity-60">
-            {busy ? "…" : t("startShift")}
-          </button>
-        ) : (
-          <>
-            <button onClick={finish} disabled={busy} className="h-28 w-28 rounded-full bg-signal px-2 text-center text-base font-semibold leading-tight text-[#0B1320] disabled:opacity-60">
-              {busy ? "…" : t("finishShift")}
-            </button>
-            <button onClick={toggleBreak} className="rounded-full border border-border px-6 py-2 text-sm">
-              {phase === "onBreak" ? t("resume") : t("pause")}
-            </button>
-          </>
-        )}
-        {gps === "denied" && <p className="text-sm text-alert">{t("gpsDenied")}</p>}
-      </div>
+          {/* actions */}
+          <div className="flex flex-col items-center gap-3">
+            {!active ? (
+              <button onClick={start} disabled={busy} className="h-28 w-28 rounded-full bg-text px-2 text-center text-base font-semibold leading-tight text-bg disabled:opacity-60">
+                {busy ? "…" : t("startShift")}
+              </button>
+            ) : (
+              <>
+                <button onClick={finish} disabled={busy} className="h-28 w-28 rounded-full bg-signal px-2 text-center text-base font-semibold leading-tight text-[#0B1320] disabled:opacity-60">
+                  {busy ? "…" : t("finishShift")}
+                </button>
+                <button onClick={toggleBreak} className="rounded-full border border-border px-6 py-2 text-sm">
+                  {phase === "onBreak" ? t("resume") : t("pause")}
+                </button>
+              </>
+            )}
+            {gps === "denied" && <p className="text-sm text-alert">{t("gpsDenied")}</p>}
+          </div>
 
-      {/* month total */}
-      <div className="rounded-2xl border border-border bg-surface p-4 text-center">
-        <div className="text-sm text-muted">{t("monthTotal")}</div>
-        <div className="tabular text-2xl font-semibold">{hours1(monthSeconds)} {t("hoursUnit")}</div>
-        {showEarn && monthEarn.rate != null && <div className="text-sm text-muted">{money(monthEarn.amount, profile.currency)}</div>}
-      </div>
+          {/* month total */}
+          <div className="rounded-2xl border border-border bg-surface p-4 text-center">
+            <div className="text-sm text-muted">{t("monthTotal")}</div>
+            <div className="tabular text-2xl font-semibold">{hours1(monthSeconds)} {t("hoursUnit")}</div>
+            {showEarn && monthEarn.rate != null && <div className="text-sm text-muted">{money(monthEarn.amount, profile.currency)}</div>}
+          </div>
+        </>
+      ) : (
+        <div className="flex-1 space-y-3">
+          <div className="rounded-2xl border border-border bg-surface p-4 text-center">
+            <div className="text-sm text-muted">{t("monthTotal")}</div>
+            <div className="tabular text-3xl font-semibold">{hours1(monthSeconds)} {t("hoursUnit")}</div>
+            {showEarn && monthEarn.rate != null && <div className="text-sm text-muted">{money(monthEarn.amount, profile.currency)}</div>}
+          </div>
+          {monthShifts.length === 0 ? (
+            <p className="py-8 text-center text-muted">{t("noShifts")}</p>
+          ) : (
+            monthShifts.map((s) => {
+              const worked = s.worked_seconds ?? (s.ended_at ? Math.max(0, Math.floor((Date.parse(s.ended_at) - Date.parse(s.started_at)) / 1000) - s.break_seconds) : 0);
+              return (
+                <div key={s.id} className="rounded-xl border border-border bg-surface p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="font-medium">{fmtDate(s.started_at)}</div>
+                    <div className="tabular font-semibold">{hours1(worked)} {t("hoursUnit")}</div>
+                  </div>
+                  <div className="tabular mt-0.5 text-sm text-muted">
+                    {fmtTime(s.started_at)} – {s.ended_at ? fmtTime(s.ended_at) : "…"}
+                    {s.break_seconds > 0 && <span> · {t("breakShort")} {Math.round(s.break_seconds / 60)}m</span>}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
     </div>
   );
+}
+
+function fmtDate(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+}
+function fmtTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 }
 
 function Centered({ children }: { children: React.ReactNode }) {

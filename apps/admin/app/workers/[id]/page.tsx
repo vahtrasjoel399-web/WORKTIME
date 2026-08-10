@@ -176,7 +176,8 @@ export default async function WorkerCard({
 
                   <div className="mt-1 flex items-center justify-between">
                     <span className="text-xs text-muted">
-                      {s.start_address ?? "—"}
+                      🟢 {s.start_address ?? "—"}
+                      {s.end_address ? <> · 🔴 {s.end_address}</> : null}
                       {s.source === "manual" && <span className="ml-2 italic">käsitsi korrigeeritud</span>}
                     </span>
                     <EditShift shift={{ id: s.id, started_at: s.started_at, ended_at: s.ended_at, break_seconds: s.break_seconds, status: s.status }} />
