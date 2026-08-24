@@ -3,10 +3,13 @@ import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase-server";
 import { getProfile } from "@/lib/auth";
 import { hours1, money } from "@/lib/format";
+import { resolveEarnings } from "@/lib/report";
+import { isoWeek, parseYmd, weekRange } from "@/lib/week";
+import { distanceLabel, matchSite, shortAddress } from "@/lib/geo";
 import { AddWorker } from "@/components/AddWorker";
 import { PendingWorkers } from "@/components/PendingWorkers";
 import { DeleteWorker } from "@/components/DeleteWorker";
-import type { Profile } from "@/lib/types";
+import type { Profile, Site } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -16,35 +19,54 @@ export default async function WorkersPage() {
   if (me.role !== "admin") redirect("/me"); // workers get their own screen
 
   const supabase = supabaseServer();
-  const now = new Date();
-  const from = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1)).toISOString();
-  const to = new Date(Date.UTC(now.getFullYear(), now.getMonth() + 1, 1)).toISOString();
+  // Pay runs weekly (D-015): the list shows the running Mon-Sun week, not the month.
+  const week = weekRange(new Date());
+  const from = parseYmd(week.from).toISOString();
+  const toDate = parseYmd(week.to);
+  toDate.setUTCDate(toDate.getUTCDate() + 1);
+  const to = toDate.toISOString();
 
-  const [{ data: workers }, { data: openShifts }, { data: monthShifts }, { data: sites }, { data: company }] =
+  const [{ data: workers }, { data: openShifts }, { data: weekShifts }, { data: sites }, { data: company }] =
     await Promise.all([
       supabase.from("profiles").select("*").eq("role", "worker").order("last_name"),
-      supabase.from("shifts").select("user_id, site_id, started_at").eq("status", "open"),
+      supabase
+        .from("shifts")
+        .select("user_id, site_id, started_at, start_lat, start_lng, start_address")
+        .eq("status", "open"),
       supabase
         .from("shifts")
         .select("user_id, worked_seconds")
         .eq("status", "closed")
         .gte("started_at", from)
         .lt("started_at", to),
-      supabase.from("sites").select("id, name"),
+      supabase.from("sites").select("*"),
       supabase.from("companies").select("name, join_code").limit(1).maybeSingle(),
     ]);
 
-  const siteName = new Map((sites ?? []).map((s) => [s.id, s.name]));
+  const siteList = (sites ?? []) as Site[];
+  const siteById = new Map(siteList.map((s) => [s.id, s]));
   const openBy = new Map((openShifts ?? []).map((o) => [o.user_id, o]));
-  const monthSeconds = new Map<string, number>();
-  for (const s of monthShifts ?? []) {
-    monthSeconds.set(s.user_id, (monthSeconds.get(s.user_id) ?? 0) + (s.worked_seconds ?? 0));
+  const weekSeconds = new Map<string, number>();
+  for (const s of weekShifts ?? []) {
+    weekSeconds.set(s.user_id, (weekSeconds.get(s.user_id) ?? 0) + (s.worked_seconds ?? 0));
   }
 
   const all = (workers ?? []) as Profile[];
   const pending = all.filter((w) => w.is_approved === false);
   const list = all.filter((w) => w.is_approved !== false);
   const onShift = list.filter((w) => openBy.has(w.id)).length;
+
+  // gross owed for the running week, per worker and in total
+  const weekEarned = new Map<string, number>();
+  for (const w of list) {
+    weekEarned.set(
+      w.id,
+      resolveEarnings(weekSeconds.get(w.id) ?? 0, w.hourly_rate, w.self_hourly_rate).amount,
+    );
+  }
+  const payroll = [...weekEarned.values()].reduce((a, b) => a + b, 0);
+  const weekHours = [...weekSeconds.values()].reduce((a, b) => a + b, 0);
+  const currency = list[0]?.currency ?? "EUR";
 
   return (
     <div className="space-y-6">
@@ -53,6 +75,11 @@ export default async function WorkersPage() {
           <h1 className="font-display text-3xl font-bold">Töötajad</h1>
           <p className="mt-1 text-sm text-muted">
             {list.length} töötajat · <span className="text-live">{onShift} vahetuses</span>
+          </p>
+          <p className="mt-1 text-sm text-muted">
+            Nädal {isoWeek(parseYmd(week.from))} ({week.from.slice(8)}.{week.from.slice(5, 7)}–
+            {week.to.slice(8)}.{week.to.slice(5, 7)}) · {hours1(weekHours)} h ·{" "}
+            <span className="font-semibold text-signal">{money(payroll, currency)}</span> palgafond
           </p>
           {company?.join_code && (
             <p className="mt-2 text-sm text-muted">
@@ -66,7 +93,7 @@ export default async function WorkersPage() {
             href="/reports"
             className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:border-signal"
           >
-            Ava aruanded →
+            Nädala aruanne →
           </Link>
           <AddWorker />
         </div>
@@ -80,16 +107,24 @@ export default async function WorkersPage() {
             <tr>
               <th className="px-3 py-3 font-medium sm:px-4">Nimi</th>
               <th className="px-3 py-3 font-medium sm:px-4">Olek</th>
-              <th className="hidden px-4 py-3 font-medium sm:table-cell">Objekt</th>
-              <th className="px-3 py-3 text-right font-medium sm:px-4">Tunnid</th>
+              <th className="px-3 py-3 font-medium sm:px-4">Objekt</th>
+              <th className="px-3 py-3 text-right font-medium sm:px-4">Tunnid (nädal)</th>
               <th className="hidden px-4 py-3 text-right font-medium sm:table-cell">Tunnitasu</th>
+              <th className="px-3 py-3 text-right font-medium sm:px-4">Teenitud</th>
               <th className="px-3 py-3 sm:px-4"></th>
             </tr>
           </thead>
           <tbody>
             {list.map((w, i) => {
               const open = openBy.get(w.id);
-              const secs = monthSeconds.get(w.id) ?? 0;
+              // Where is this punch? The database resolves it on insert (D-016);
+              // shifts recorded before that are matched here by the same rule.
+              const fix = open ? matchSite(open.start_lat, open.start_lng, siteList) : null;
+              const site = open?.site_id ? siteById.get(open.site_id) ?? null : fix?.site ?? null;
+              const outOfZone = open != null && site == null && fix?.nearest != null;
+              const address = shortAddress(open?.start_address ?? null);
+              const secs = weekSeconds.get(w.id) ?? 0;
+              const rate = w.hourly_rate ?? w.self_hourly_rate ?? null;
               return (
                 <tr
                   key={w.id}
@@ -111,12 +146,32 @@ export default async function WorkersPage() {
                       <span className="text-muted">Vaba</span>
                     )}
                   </td>
-                  <td className="hidden px-4 py-3 text-muted sm:table-cell">
-                    {open?.site_id ? siteName.get(open.site_id) ?? "—" : "—"}
+                  <td className="px-3 py-3 sm:px-4">
+                    {open ? (
+                      <>
+                        <div className={site ? "font-medium" : "font-medium text-alert"}>
+                          {site ? site.name : fix?.nearest ? "Väljaspool tsooni" : "Objekt tuvastamata"}
+                        </div>
+                        <div className="text-xs text-muted">
+                          {address ?? "aadress puudub"}
+                          {outOfZone && fix?.nearest && (
+                            <span className="text-alert">
+                              {" "}
+                              · {distanceLabel(fix.distance)} objektist {fix.nearest.name}
+                            </span>
+                          )}
+                        </div>
+                      </>
+                    ) : (
+                      <span className="text-muted">—</span>
+                    )}
                   </td>
                   <td className="px-3 py-3 text-right tabular sm:px-4">{hours1(secs)}</td>
                   <td className="hidden px-4 py-3 text-right text-muted sm:table-cell">
                     {w.hourly_rate != null ? money(w.hourly_rate, w.currency) : "—"}
+                  </td>
+                  <td className="px-3 py-3 text-right tabular font-semibold text-signal sm:px-4">
+                    {rate != null ? money(weekEarned.get(w.id) ?? 0, w.currency) : "—"}
                   </td>
                   <td className="px-3 py-3 text-right sm:px-4">
                     <DeleteWorker id={w.id} name={`${w.first_name} ${w.last_name}`} />

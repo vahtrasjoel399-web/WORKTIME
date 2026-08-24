@@ -1,9 +1,11 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase-server";
 import { hours1, hm, dmy, money, monthRange } from "@/lib/format";
 import { WorkerAdmin } from "@/components/WorkerAdmin";
 import { EditShift } from "@/components/EditShift";
+import { AddShift } from "@/components/AddShift";
 import { MapView } from "@/components/MapView";
 import { resolveEarnings } from "@/lib/report";
 import type { ShiftReport } from "@/lib/types";
@@ -55,6 +57,18 @@ export default async function WorkerCard({
   }
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const firstDow = (new Date(year, month, 1).getDay() + 6) % 7; // Monday=0
+
+  // Pay runs weekly (D-015), so the calendar carries a per-week subtotal column.
+  const cells: (number | null)[] = [
+    ...Array.from({ length: firstDow }, () => null),
+    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+  ];
+  while (cells.length % 7 !== 0) cells.push(null);
+  const calendarWeeks = Array.from({ length: cells.length / 7 }, (_, r) => {
+    const row = cells.slice(r * 7, r * 7 + 7);
+    const seconds = row.reduce((a: number, day) => a + (day != null ? dayTotals.get(day) ?? 0 : 0), 0);
+    return { row, seconds, earned: resolveEarnings(seconds, worker.hourly_rate, worker.self_hourly_rate).amount };
+  });
 
   // GPS markers for the month
   const markers = shifts.flatMap((s) => {
@@ -109,28 +123,40 @@ export default async function WorkerCard({
                 →
               </Link>
             </div>
-            <div className="grid grid-cols-7 gap-1 text-center text-xs text-muted">
+            <div className="grid grid-cols-8 gap-1 text-center text-xs text-muted">
               {["E", "T", "K", "N", "R", "L", "P"].map((d) => (
                 <div key={d} className="py-1">{d}</div>
               ))}
-              {Array.from({ length: firstDow }).map((_, i) => (
-                <div key={`b${i}`} />
-              ))}
-              {Array.from({ length: daysInMonth }).map((_, i) => {
-                const day = i + 1;
-                const secs = dayTotals.get(day);
-                return (
-                  <div
-                    key={day}
-                    className={`aspect-square rounded-lg border p-1 ${
-                      secs ? "border-signal/40 bg-signal/10" : "border-border"
-                    }`}
-                  >
-                    <div className="text-[11px] text-muted">{day}</div>
-                    {secs != null && <div className="tabular text-xs font-semibold text-text">{hours1(secs)}</div>}
+              <div className="py-1 font-semibold text-signal">nädal</div>
+              {calendarWeeks.map((wk, r) => (
+                <Fragment key={r}>
+                  {wk.row.map((day, c) =>
+                    day == null ? (
+                      <div key={`b${r}-${c}`} />
+                    ) : (
+                      <div
+                        key={day}
+                        className={`aspect-square rounded-lg border p-1 ${
+                          dayTotals.get(day) ? "border-signal/40 bg-signal/10" : "border-border"
+                        }`}
+                      >
+                        <div className="text-[11px] text-muted">{day}</div>
+                        {dayTotals.get(day) != null && (
+                          <div className="tabular text-xs font-semibold text-text">{hours1(dayTotals.get(day)!)}</div>
+                        )}
+                      </div>
+                    ),
+                  )}
+                  <div className={`aspect-square rounded-lg border p-1 ${wk.seconds ? "border-signal bg-signal/15" : "border-border"}`}>
+                    <div className="tabular text-xs font-semibold text-text">{wk.seconds ? hours1(wk.seconds) : "·"}</div>
+                    {wk.seconds > 0 && earn.rate != null && (
+                      <div className="tabular text-[10px] font-semibold text-signal">
+                        {money(wk.earned, worker.currency)}
+                      </div>
+                    )}
                   </div>
-                );
-              })}
+                </Fragment>
+              ))}
             </div>
           </div>
 
@@ -146,6 +172,14 @@ export default async function WorkerCard({
 
           {/* shift list */}
           <div className="space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="font-display text-lg font-semibold">Vahetused</h3>
+              <AddShift
+                userId={worker.id}
+                companyId={worker.company_id}
+                workerName={`${worker.first_name} ${worker.last_name}`}
+              />
+            </div>
             {shifts.length === 0 && <p className="text-muted">Sel kuul vahetusi pole.</p>}
             {shifts.map((s, i) => {
               const shiftEdits = (edits ?? []).filter((e) => e.shift_id === s.id);
@@ -167,6 +201,7 @@ export default async function WorkerCard({
                     <div className="text-right">
                       <div className="tabular text-lg font-semibold">{hours1(s.worked_seconds)} h</div>
                       <div className="flex items-center justify-end gap-2">
+                        {s.source === "manual" && <span className="text-xs text-muted">käsitsi</span>}
                         {s.status === "open" && <span className="text-xs text-signal">avatud</span>}
                         {s.is_stale && <span className="text-xs text-alert">aegunud</span>}
                         {s.out_of_zone && <span className="text-xs text-alert">väljaspool tsooni</span>}
@@ -178,7 +213,6 @@ export default async function WorkerCard({
                     <span className="text-xs text-muted">
                       🟢 {s.start_address ?? "—"}
                       {s.end_address ? <> · 🔴 {s.end_address}</> : null}
-                      {s.source === "manual" && <span className="ml-2 italic">käsitsi korrigeeritud</span>}
                     </span>
                     <EditShift shift={{ id: s.id, started_at: s.started_at, ended_at: s.ended_at, break_seconds: s.break_seconds, status: s.status }} />
                   </div>

@@ -1,19 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 import { supabaseServer } from "@/lib/supabase-server";
-import { buildMatrix } from "@/lib/report";
+import { buildMatrix, buildWeekly, type WorkerRow } from "@/lib/report";
+import { isFullWeek, isoWeek, isoWeekYear, parseYmd } from "@/lib/week";
 import type { ShiftReport } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
 // Payroll export. Reads through the caller's session so RLS scopes it to the
-// admin's own company. Produces a worker × day matrix with totals + rate + gross.
+// admin's own company. Produces a worker × day matrix with totals + rate + gross,
+// plus a per-week block — pay runs weekly (D-015), so that is the payable table.
 export async function GET(req: NextRequest) {
   const format = req.nextUrl.searchParams.get("format") ?? "csv";
   const fromStr = req.nextUrl.searchParams.get("from")!;
   const toStr = req.nextUrl.searchParams.get("to")!;
-  const from = new Date(fromStr + "T00:00:00Z");
-  const to = new Date(toStr + "T00:00:00Z");
+  const from = parseYmd(fromStr);
+  const to = parseYmd(toStr);
   to.setUTCDate(to.getUTCDate() + 1);
 
   const supabase = supabaseServer();
@@ -27,7 +29,9 @@ export async function GET(req: NextRequest) {
       .lt("started_at", to.toISOString()),
   ]);
 
-  const matrix = buildMatrix((shiftsRaw ?? []) as ShiftReport[], workers ?? [], from, to);
+  const workerRows = (workers ?? []) as WorkerRow[];
+  const matrix = buildMatrix((shiftsRaw ?? []) as ShiftReport[], workerRows, from, to);
+  const weekly = buildWeekly(matrix, workerRows);
 
   // rows: worker, [day...], total hours, rate, gross, out-of-zone flags
   const header = ["Töötaja", ...matrix.days, "Tunnid kokku", "Tunnitasu", "Bruto (orient.)", "Väljaspool tsooni"];
@@ -47,12 +51,45 @@ export async function GET(req: NextRequest) {
     ];
   });
 
-  const filename = `tooaeg_${fromStr}_${toStr}`;
+  // per-week sheet: hours and gross side by side for every pay week in the range
+  const weekHeader = [
+    "Töötaja",
+    "Tunnitasu",
+    ...weekly.weeks.flatMap((w) => [`${w.label} h`, `${w.label} €`]),
+    "Tunnid kokku",
+    "Bruto kokku",
+  ];
+  const weekRows = matrix.workers.map((w) => [
+    w.name,
+    w.rate ?? "",
+    ...weekly.weeks.flatMap((wk) => {
+      const secs = weekly.seconds[w.id]?.[wk.key] ?? 0;
+      const amt = weekly.earnings[w.id]?.[wk.key] ?? 0;
+      return [secs ? Number((secs / 3600).toFixed(2)) : "", secs && w.rate != null ? Number(amt.toFixed(2)) : ""];
+    }),
+    Number((matrix.totalsByWorker[w.id] / 3600).toFixed(2)),
+    w.rate != null ? Number(matrix.earningsByWorker[w.id].toFixed(2)) : "",
+  ]);
+  const weekTotals = [
+    "KOKKU",
+    "",
+    ...weekly.weeks.flatMap((wk) => [
+      Number((weekly.totalsByWeek[wk.key] / 3600).toFixed(2)),
+      Number(weekly.earningsByWeek[wk.key].toFixed(2)),
+    ]),
+    Number((Object.values(matrix.totalsByWorker).reduce((a, b) => a + b, 0) / 3600).toFixed(2)),
+    Number(Object.values(matrix.earningsByWorker).reduce((a, b) => a + b, 0).toFixed(2)),
+  ];
+
+  // A single-week export is named by its ISO week — that is how pay runs are filed.
+  const filename = isFullWeek(from, to)
+    ? `tooaeg_${isoWeekYear(from)}-N${String(isoWeek(from)).padStart(2, "0")}_${fromStr}_${toStr}`
+    : `tooaeg_${fromStr}_${toStr}`;
 
   if (format === "xlsx") {
-    const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Aruanne");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([weekHeader, ...weekRows, weekTotals]), "Nädalad");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([header, ...rows]), "Päevad");
     const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
     return new NextResponse(buf, {
       headers: {
@@ -67,7 +104,12 @@ export async function GET(req: NextRequest) {
     const s = String(v ?? "");
     return /[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
-  const csv = "﻿" + [header, ...rows].map((r) => r.map(esc).join(";")).join("\r\n");
+  const block = (aoa: unknown[][]) => aoa.map((r) => r.map(esc).join(";")).join("\r\n");
+  const csv =
+    "﻿" +
+    block([["NÄDALAD"], weekHeader, ...weekRows, weekTotals]) +
+    "\r\n\r\n" +
+    block([["PÄEVAD"], header, ...rows]);
   return new NextResponse(csv, {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",

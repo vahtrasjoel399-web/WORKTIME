@@ -3,6 +3,32 @@
 Running log. Newest first. Each entry: **what** was decided and **why**, so future changes don't
 re-litigate settled ground.
 
+## D-016 — The database attributes a punch to a site; the panel shows the address it read
+`site_id` used to be whatever the client sent, and the web app sent nothing — so the employer's
+list showed "—" and `out_of_zone` was always null. A `before insert` trigger now resolves it from
+the GPS fix taken at shift start: nearest company site whose own radius contains the point, else
+the worker's `default_site_id`. The rule lives in SQL so both clients get it and old rows could be
+backfilled; `lib/geo.ts` mirrors it in TypeScript only for displaying rows written before the
+trigger existed. The workers list shows the resolved site with the reverse-geocoded street address
+underneath — when no radius matches, the address *is* the answer, plus how far off the nearest
+site it is. Sites therefore need coordinates, so the site form geocodes its own address field.
+
+## D-017 — Admin hour corrections stay inside the shift, and stay logged
+An employer can add or take away time (±15 min / ±30 min / ±1 h, or exact timestamps) and can
+enter a whole shift by hand for a day that was never clocked. Both go through `shifts` with
+`source = 'manual'` and an append-only `shift_edits` row — never a free-floating "adjustment"
+number. Hours therefore always remain `ended_at - started_at - break_seconds` (D-014), one
+arithmetic for GPS and corrected shifts alike, and every correction can be shown to the worker
+with who made it and what the value was before.
+
+## D-015 — The pay period is an ISO week (Mon–Sun), not a calendar month
+Wages are paid every week, so every default period in the panel is the running ISO week: the
+workers list, the report page, the worker screen and the export filename. `lib/week.ts` computes
+week bounds in **UTC**, matching `v_shift_report.work_date`, so a shift never lands in two
+different weeks depending on who asks. Longer ranges stay available — they then also render a
+per-week breakdown, because that is the table that actually gets paid out. Nothing is scheduled or
+cached: the pages are `force-dynamic`, so they roll over to the next week by themselves each Monday.
+
 ## D-014 — `worked_seconds` as a generated column
 Computed as `extract(epoch from ended_at - started_at) - break_seconds`, `stored`, only meaningful
 when `ended_at is not null`. Keeping it generated means clients and reports never disagree on the

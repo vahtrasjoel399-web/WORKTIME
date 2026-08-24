@@ -12,6 +12,31 @@ export function SiteEditor({ sites }: { sites: Site[] }) {
   const router = useRouter();
   const [form, setForm] = useState(empty);
   const [editing, setEditing] = useState<string | null>(null);
+  const [locating, setLocating] = useState(false);
+  const [locateErr, setLocateErr] = useState<string | null>(null);
+
+  // Auto-attribution of punches needs the site's coordinates (D-016), and an
+  // employer knows the address, not the decimals — so look them up from it.
+  async function locate() {
+    if (!form.address.trim()) {
+      setLocateErr("Sisesta enne aadress.");
+      return;
+    }
+    setLocating(true);
+    setLocateErr(null);
+    try {
+      const r = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(form.address)}`,
+      );
+      const hit = (await r.json())?.[0];
+      if (!hit) setLocateErr("Sellist aadressi ei leitud.");
+      else setForm((f) => ({ ...f, lat: Number(hit.lat).toFixed(6), lng: Number(hit.lon).toFixed(6) }));
+    } catch {
+      setLocateErr("Otsing ebaõnnestus.");
+    } finally {
+      setLocating(false);
+    }
+  }
 
   async function save() {
     const payload = {
@@ -52,11 +77,22 @@ export function SiteEditor({ sites }: { sites: Site[] }) {
         <h3 className="font-display font-semibold">{editing ? "Muuda objekti" : "Lisa objekt"}</h3>
         <input className={input} placeholder="Nimi" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
         <input className={input} placeholder="Aadress" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+        <button
+          onClick={locate}
+          disabled={locating}
+          className="w-full rounded-lg border border-border py-2 text-sm font-medium hover:border-signal disabled:opacity-60"
+        >
+          {locating ? "Otsin…" : "Leia koordinaadid aadressi järgi"}
+        </button>
+        {locateErr && <p className="text-sm text-alert">{locateErr}</p>}
         <div className="flex gap-2">
           <input className={input} placeholder="Laius (lat)" value={form.lat} onChange={(e) => setForm({ ...form, lat: e.target.value })} />
           <input className={input} placeholder="Pikkus (lng)" value={form.lng} onChange={(e) => setForm({ ...form, lng: e.target.value })} />
         </div>
         <input className={input} placeholder="Raadius (m)" value={form.radius_m} onChange={(e) => setForm({ ...form, radius_m: e.target.value })} />
+        <p className="text-xs text-muted">
+          Koordinaadid on vajalikud: nende järgi tuvastab süsteem ise, millisel objektil töötaja vahetust alustas.
+        </p>
         <div className="flex gap-2">
           <button onClick={save} className="flex-1 rounded-lg bg-text py-2 font-semibold text-bg">
             {editing ? "Salvesta" : "Lisa"}

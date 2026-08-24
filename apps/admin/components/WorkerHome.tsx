@@ -6,6 +6,7 @@ import { toggleTheme } from "./ThemeInit";
 import { useI18n, LangSwitcher } from "./I18nProvider";
 import { resolveEarnings } from "@/lib/report";
 import { money, hours1 } from "@/lib/format";
+import { isoWeek, weekDates, weekKey } from "@/lib/week";
 import type { Profile } from "@/lib/types";
 
 interface Shift {
@@ -40,13 +41,14 @@ async function getFix(): Promise<{ lat: number; lng: number; acc: number | null;
 export function WorkerHome({
   profile,
   openShift,
-  monthShifts,
+  shifts,
   approved,
   hasConsent,
 }: {
   profile: Profile;
   openShift: Shift | null;
-  monthShifts: Shift[];
+  /** Closed shifts of the last few pay weeks, newest first. */
+  shifts: Shift[];
   approved: boolean;
   hasConsent: boolean;
 }) {
@@ -102,9 +104,39 @@ export function WorkerHome({
   }
 
   // ---- earnings ----
+  // Wages are paid weekly (D-015), so the headline number is this Mon-Sun week;
+  // the running timer counts into it live.
   const rateRes = resolveEarnings(seconds, profile.hourly_rate, profile.self_hourly_rate);
-  const monthSeconds = monthShifts.reduce((a, s) => a + (s.worked_seconds ?? 0), 0) + (phase !== "idle" ? seconds : 0);
+  const now = new Date();
+  const thisWeekKey = weekKey(now);
+  const thisMonth = now.getUTCFullYear() * 12 + now.getUTCMonth();
+  const running = phase !== "idle" ? seconds : 0;
+
+  const weekSeconds =
+    shifts.reduce((a, s) => (weekKey(new Date(s.started_at)) === thisWeekKey ? a + (s.worked_seconds ?? 0) : a), 0) +
+    running;
+  const monthSeconds =
+    shifts.reduce((a, s) => {
+      const d = new Date(s.started_at);
+      return d.getUTCFullYear() * 12 + d.getUTCMonth() === thisMonth ? a + (s.worked_seconds ?? 0) : a;
+    }, 0) + running;
+  const weekEarn = resolveEarnings(weekSeconds, profile.hourly_rate, profile.self_hourly_rate);
   const monthEarn = resolveEarnings(monthSeconds, profile.hourly_rate, profile.self_hourly_rate);
+
+  // history grouped into pay weeks, newest first
+  const byWeek: { key: string; label: string; seconds: number; rows: Shift[] }[] = [];
+  for (const s of shifts) {
+    const d = new Date(s.started_at);
+    const key = weekKey(d);
+    let bucket = byWeek.find((b) => b.key === key);
+    if (!bucket) {
+      bucket = { key, label: `${t("weekShort")}${isoWeek(d)} · ${weekDates(d)}`, seconds: 0, rows: [] };
+      byWeek.push(bucket);
+    }
+    bucket.seconds += s.worked_seconds ?? 0;
+    bucket.rows.push(s);
+  }
+  byWeek.sort((a, b) => b.key.localeCompare(a.key));
 
   async function start() {
     setBusy(true); setGps("getting");
@@ -235,35 +267,65 @@ export function WorkerHome({
             {gps === "denied" && <p className="text-sm text-alert">{t("gpsDenied")}</p>}
           </div>
 
-          {/* month total */}
+          {/* pay week total */}
           <div className="rounded-2xl border border-border bg-surface p-4 text-center">
-            <div className="text-sm text-muted">{t("monthTotal")}</div>
-            <div className="tabular text-2xl font-semibold">{hours1(monthSeconds)} {t("hoursUnit")}</div>
-            {showEarn && monthEarn.rate != null && <div className="text-sm text-muted">{money(monthEarn.amount, profile.currency)}</div>}
+            <div className="text-sm text-muted">{t("weekTotal")}</div>
+            <div className="tabular text-2xl font-semibold">{hours1(weekSeconds)} {t("hoursUnit")}</div>
+            {showEarn && weekEarn.rate != null && (
+              <div className="tabular text-lg font-semibold text-signal">{money(weekEarn.amount, profile.currency)}</div>
+            )}
+            <div className="mt-1 text-xs text-muted">
+              {t("paidWeekly")} · {t("monthTotal").toLowerCase()} {hours1(monthSeconds)} {t("hoursUnit")}
+              {showEarn && monthEarn.rate != null ? ` · ${money(monthEarn.amount, profile.currency)}` : ""}
+            </div>
           </div>
         </>
       ) : (
-        <div className="flex-1 space-y-3">
+        <div className="flex-1 space-y-4">
           <div className="rounded-2xl border border-border bg-surface p-4 text-center">
-            <div className="text-sm text-muted">{t("monthTotal")}</div>
-            <div className="tabular text-3xl font-semibold">{hours1(monthSeconds)} {t("hoursUnit")}</div>
-            {showEarn && monthEarn.rate != null && <div className="text-sm text-muted">{money(monthEarn.amount, profile.currency)}</div>}
+            <div className="text-sm text-muted">{t("weekTotal")}</div>
+            <div className="tabular text-3xl font-semibold">{hours1(weekSeconds)} {t("hoursUnit")}</div>
+            {showEarn && weekEarn.rate != null && (
+              <div className="tabular text-lg font-semibold text-signal">{money(weekEarn.amount, profile.currency)}</div>
+            )}
+            <div className="mt-1 text-xs text-muted">{t("paidWeekly")}</div>
           </div>
-          {monthShifts.length === 0 ? (
+
+          {byWeek.length === 0 ? (
             <p className="py-8 text-center text-muted">{t("noShifts")}</p>
           ) : (
-            monthShifts.map((s) => {
-              const worked = s.worked_seconds ?? (s.ended_at ? Math.max(0, Math.floor((Date.parse(s.ended_at) - Date.parse(s.started_at)) / 1000) - s.break_seconds) : 0);
+            byWeek.map((wk) => {
+              const earn = resolveEarnings(wk.seconds, profile.hourly_rate, profile.self_hourly_rate);
+              const current = wk.key === thisWeekKey;
               return (
-                <div key={s.id} className="rounded-xl border border-border bg-surface p-3">
-                  <div className="flex items-center justify-between">
-                    <div className="font-medium">{fmtDate(s.started_at)}</div>
-                    <div className="tabular font-semibold">{hours1(worked)} {t("hoursUnit")}</div>
+                <div key={wk.key} className="space-y-2">
+                  <div className="flex items-baseline justify-between border-b border-border pb-1">
+                    <div className="text-sm font-semibold">
+                      {current ? t("thisWeek") : wk.label}
+                      {current && <span className="ml-2 text-xs font-normal text-muted">{wk.label}</span>}
+                    </div>
+                    <div className="text-right">
+                      <span className="tabular font-semibold">{hours1(wk.seconds)} {t("hoursUnit")}</span>
+                      {showEarn && earn.rate != null && (
+                        <span className="tabular ml-2 font-semibold text-signal">{money(earn.amount, profile.currency)}</span>
+                      )}
+                    </div>
                   </div>
-                  <div className="tabular mt-0.5 text-sm text-muted">
-                    {fmtTime(s.started_at)} – {s.ended_at ? fmtTime(s.ended_at) : "…"}
-                    {s.break_seconds > 0 && <span> · {t("breakShort")} {Math.round(s.break_seconds / 60)}m</span>}
-                  </div>
+                  {wk.rows.map((s) => {
+                    const worked = s.worked_seconds ?? (s.ended_at ? Math.max(0, Math.floor((Date.parse(s.ended_at) - Date.parse(s.started_at)) / 1000) - s.break_seconds) : 0);
+                    return (
+                      <div key={s.id} className="rounded-xl border border-border bg-surface p-3">
+                        <div className="flex items-center justify-between">
+                          <div className="font-medium">{fmtDate(s.started_at)}</div>
+                          <div className="tabular font-semibold">{hours1(worked)} {t("hoursUnit")}</div>
+                        </div>
+                        <div className="tabular mt-0.5 text-sm text-muted">
+                          {fmtTime(s.started_at)} – {s.ended_at ? fmtTime(s.ended_at) : "…"}
+                          {s.break_seconds > 0 && <span> · {t("breakShort")} {Math.round(s.break_seconds / 60)}m</span>}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               );
             })
