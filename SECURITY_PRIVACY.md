@@ -4,7 +4,8 @@ This document describes technical safeguards, not a certification of GDPR compli
 
 ## Implemented
 
-- Every operational row is tenant-scoped by `company_id` and protected by Supabase RLS.
+- Operational data is tenant-scoped directly by `company_id`, or for notice acknowledgements
+  through the referenced worker profile, and protected by Supabase RLS.
 - Workers can read only their own profile; admins can read profiles in their own company.
 - Shift tenant ownership is derived server-side from the worker profile.
 - Cross-company `site_id` references are rejected in the database.
