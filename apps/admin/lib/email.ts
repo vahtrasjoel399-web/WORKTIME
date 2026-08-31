@@ -3,6 +3,9 @@ const DOMAIN_FIXES: Record<string, string> = {
   "gmial.com": "gmail.com",
   "gmai.com": "gmail.com",
   "gmail.co": "gmail.com",
+  "gmeil.com": "gmail.com",
+  "gmeil.cok": "gmail.com",
+  "gmail.cok": "gmail.com",
   "hotmail.con": "hotmail.com",
   "hotnail.com": "hotmail.com",
   "outlook.con": "outlook.com",
@@ -20,7 +23,8 @@ export function emailSuggestion(value: string): string | null {
   if (at < 1) return null;
   const local = email.slice(0, at);
   const domain = email.slice(at + 1);
-  const fixed = DOMAIN_FIXES[domain] ?? (domain.endsWith(".con") ? `${domain.slice(0, -4)}.com` : null);
+  const fixed = DOMAIN_FIXES[domain]
+    ?? (domain.endsWith(".con") || domain.endsWith(".cok") ? `${domain.slice(0, -4)}.com` : null);
   return fixed && fixed !== domain ? `${local}@${fixed}` : null;
 }
 

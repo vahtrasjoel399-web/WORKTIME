@@ -69,7 +69,7 @@ export default function Login() {
       email: cleanEmail, password,
       options: { emailRedirectTo: redirectTo, data: { registration_kind: "worker", join_code: code.trim().toUpperCase(), first_name: first.trim(), last_name: last.trim() } },
     });
-    if (se) { setBusy(false); return showError(se.message.includes("already") ? t("errExists") : t("errCreate")); }
+    if (se) { setBusy(false); return showError(t("errSignupCheck")); }
     if (!su.session) { setBusy(false); setNotice(t("confirmEmail")); return; }
     const { error: re } = await supabase.rpc("register_worker", { p_join_code: code.trim(), worker_first: first.trim(), worker_last: last.trim() });
     if (re) { setBusy(false); return showError(re.message.includes("invalid") ? t("errBadCode") : t("errRegister")); }
@@ -85,7 +85,7 @@ export default function Login() {
       email: cleanEmail, password,
       options: { emailRedirectTo: redirectTo, data: { registration_kind: "company", company_name: company.trim(), first_name: first.trim(), last_name: last.trim() } },
     });
-    if (se) { setBusy(false); return showError(se.message.includes("already") ? t("errExists") : t("errCreate")); }
+    if (se) { setBusy(false); return showError(t("errSignupCheck")); }
     if (!su.session) { setBusy(false); setNotice(t("confirmEmail")); return; }
     const { data: c, error: re } = await supabase.rpc("register_company", { company_name: company.trim(), admin_first: first.trim(), admin_last: last.trim() });
     setBusy(false);

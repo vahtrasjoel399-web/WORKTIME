@@ -31,6 +31,7 @@ export const dict: Dict = {
   codeFromEmployer: { et: "Ettevõtte koodi annab tööandja.", ru: "Код компании даёт работодатель.", en: "Your employer gives you the company code." },
   errWrongCreds: { et: "Vale e-post või parool.", ru: "Неверная почта или пароль.", en: "Wrong email or password." },
   errExists: { et: "Selle e-postiga konto on juba olemas.", ru: "Аккаунт с этой почтой уже есть.", en: "An account with this email already exists." },
+  errSignupCheck: { et: "Kontot ei saanud luua. Kontrolli e-posti või proovi sisse logida.", ru: "Не удалось создать аккаунт. Проверьте почту или попробуйте войти.", en: "Could not create the account. Check the email or try signing in." },
   errCreate: { et: "Konto loomine ebaõnnestus.", ru: "Не удалось создать аккаунт.", en: "Could not create the account." },
   errBadCode: { et: "Sellist ettevõtte koodi pole.", ru: "Такого кода компании нет. Уточните у работодателя.", en: "That company code doesn't exist." },
   errRegister: { et: "Registreerimine ebaõnnestus.", ru: "Не удалось зарегистрироваться.", en: "Could not register." },
