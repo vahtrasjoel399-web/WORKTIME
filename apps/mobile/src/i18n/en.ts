@@ -39,7 +39,7 @@ export const en = {
     body:
       "To confirm where a shift began and ended, this app records your location at exactly two moments: when you tap Start shift and when you tap Finish shift. It never tracks you in the background or between those moments.",
     retention: "Location points are kept for 24 months, then deleted.",
-    agree: "I agree",
+    agree: "I understand",
     decline: "Not now",
     declined: "You can enable this later in Settings. Shifts can’t record location until then.",
   },

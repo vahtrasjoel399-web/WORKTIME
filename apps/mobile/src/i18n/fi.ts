@@ -41,7 +41,7 @@ export const fi: Messages = {
     body:
       "Vahvistaakseen, missä vuoro alkoi ja päättyi, sovellus tallentaa sijaintisi täsmälleen kahdella hetkellä: kun aloitat vuoron ja kun lopetat sen. Taustalla tai näiden hetkien välillä sijaintia ei seurata.",
     retention: "Sijaintipisteet säilytetään 24 kuukautta ja poistetaan sitten.",
-    agree: "Hyväksyn",
+    agree: "Ymmärrän",
     decline: "Ei nyt",
     declined: "Voit ottaa tämän käyttöön myöhemmin asetuksissa. Siihen asti sijaintia ei tallenneta.",
   },

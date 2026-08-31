@@ -172,8 +172,9 @@ built to make that defensible:
 
 - GPS is captured **only** at the two moments of shift start and shift end — never continuously,
   never in the background.
-- On first launch the worker sees a **consent screen** explaining exactly what is recorded and why;
-  the consent (with timestamp) is stored in `public.consents`.
+- On first launch the worker sees a **location notice** explaining exactly what is recorded and why;
+  the acknowledgement (with timestamp and notice version) is stored in `public.consents`. This is
+  evidence that the notice was shown, not a substitute for the employer documenting a lawful basis.
 - GPS points are retained **24 months**, then auto-deleted (`purge_old_gps()` scheduled function).
 - The admin panel provides **per-worker data export** and **full deletion** (GDPR right of access
   and right to erasure).

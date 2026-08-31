@@ -46,7 +46,7 @@ begin
                             email_confirmed_at, created_at, updated_at,
                             raw_app_meta_data, raw_user_meta_data)
     values (ids[i], '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
-            emails[i], crypt('Passw0rd!', gen_salt('bf')),
+            emails[i], extensions.crypt('Passw0rd!', extensions.gen_salt('bf')),
             now(), now(), now(),
             '{"provider":"email","providers":["email"]}', '{}')
     on conflict (id) do nothing;

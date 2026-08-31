@@ -6,7 +6,7 @@ type CookieToSet = { name: string; value: string; options: CookieOptions };
 // Refreshes the Supabase auth cookie on every request and gates the app: an
 // unauthenticated visitor is bounced to /login. Authorization within the app is
 // still enforced by RLS on every query.
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   let res = NextResponse.next({ request: req });
 
   const supabase = createServerClient(

@@ -45,7 +45,7 @@ export function WorkerAdmin({ worker, sites }: { worker: Profile & { default_sit
     const res = await fetch("/api/gdpr", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id: worker.id }),
+      body: JSON.stringify({ user_id: worker.id, confirmation: "DELETE" }),
     });
     if (res.ok) router.push("/");
     else alert("Kustutamine ebaõnnestus.");

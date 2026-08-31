@@ -364,7 +364,17 @@ function Consent({ userId, onDone }: { userId: string; onDone: () => void }) {
   const [busy, setBusy] = useState(false);
   async function agree() {
     setBusy(true);
-    await supabase.from("consents").insert({ user_id: userId, kind: "geolocation", version: "1", granted: true });
+    const { error } = await supabase.from("consents").insert({
+      user_id: userId,
+      kind: "geolocation_notice",
+      version: "2",
+      granted: true,
+    });
+    if (error) {
+      setBusy(false);
+      alert(error.message);
+      return;
+    }
     onDone();
   }
   return (

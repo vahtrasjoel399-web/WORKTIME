@@ -77,8 +77,8 @@ export const dict: Dict = {
   pendingBody: { et: "Tööandja peab sind vastu võtma. Siis saad vahetust alustada.", ru: "Работодатель должен принять вас в компанию. Как только примет — сможете начать смену.", en: "Your employer needs to accept you. Then you can start a shift." },
   checkAgain: { et: "Kontrolli uuesti", ru: "Проверить снова", en: "Check again" },
 
-  // consent
+  // Location notice acknowledgement. The employer documents the lawful basis.
   consentTitle: { et: "Asukoht alustamisel ja lõpetamisel", ru: "Геолокация при старте и завершении", en: "Location at start and finish" },
   consentBody: { et: "Rakendus salvestab asukoha ainult kahel hetkel: vahetuse alustamisel ja lõpetamisel. Taustal ei jälgita. Punkte hoitakse 24 kuud.", ru: "Приложение фиксирует местоположение только в два момента: при начале и завершении смены. В фоне отслеживания нет. Точки хранятся 24 месяца.", en: "Location is recorded only at two moments: starting and finishing a shift. No background tracking. Points kept 24 months." },
-  agree: { et: "Nõustun", ru: "Согласен", en: "I agree" },
+  agree: { et: "Sain aru", ru: "Понятно", en: "I understand" },
 };

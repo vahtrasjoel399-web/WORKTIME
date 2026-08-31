@@ -39,7 +39,21 @@ export async function flush(): Promise<{ pushed: number }> {
       };
 
       if (r.remote_id) {
-        const { error } = await supabase.from("shifts").update(payload).eq("id", r.remote_id);
+        // Existing punches may only advance their mutable end-state. Do not
+        // resend tenant/start fields: the database owns those fields and may
+        // have resolved site_id after the original offline insert.
+        const { error } = await supabase
+          .from("shifts")
+          .update({
+            ended_at: r.ended_at,
+            end_lat: r.end_lat,
+            end_lng: r.end_lng,
+            end_accuracy_m: r.end_accuracy_m,
+            end_address: r.end_address,
+            break_seconds: r.break_seconds,
+            status: r.status,
+          })
+          .eq("id", r.remote_id);
         if (!error) {
           await markSynced(r.local_id, r.remote_id);
           pushed++;

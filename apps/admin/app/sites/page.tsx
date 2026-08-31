@@ -5,7 +5,7 @@ import type { Site } from "@/lib/types";
 export const dynamic = "force-dynamic";
 
 export default async function SitesPage() {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const { data: sites } = await supabase.from("sites").select("*").order("name");
   return (
     <div className="space-y-6">

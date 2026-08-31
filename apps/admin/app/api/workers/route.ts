@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 // from their own session; the new auth user + profile are created with the service
 // role, then the worker signs in with the emailed temporary password.
 export async function POST(req: NextRequest) {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();

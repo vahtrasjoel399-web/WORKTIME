@@ -12,7 +12,7 @@ export default async function MePage() {
   if (!profile) redirect("/login");
   if (profile.role === "admin") redirect("/"); // admins use the dashboard
 
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   // Pay runs weekly (D-015): load the last 8 pay weeks so the worker can check the
   // week they were paid for, plus the running one. That window also covers the
   // whole current month, which the screen still shows as context.
@@ -27,7 +27,13 @@ export default async function MePage() {
       .eq("status", "closed")
       .gte("started_at", from)
       .order("started_at", { ascending: false }),
-    supabase.from("consents").select("*", { count: "exact", head: true }).eq("user_id", profile.id).eq("granted", true),
+    supabase
+      .from("consents")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", profile.id)
+      .eq("kind", "geolocation_notice")
+      .eq("version", "2")
+      .eq("granted", true),
   ]);
 
   return (

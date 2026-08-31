@@ -18,7 +18,7 @@ export default async function WorkersPage() {
   if (!me) redirect("/login");
   if (me.role !== "admin") redirect("/me"); // workers get their own screen
 
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   // Pay runs weekly (D-015): the list shows the running Mon-Sun week, not the month.
   const week = weekRange(new Date());
   const from = parseYmd(week.from).toISOString();

@@ -67,7 +67,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     }
     const [{ data: prof }, { count }] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", uid).single(),
-      supabase.from("consents").select("*", { count: "exact", head: true }).eq("user_id", uid).eq("granted", true),
+      supabase
+        .from("consents")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", uid)
+        .eq("kind", "geolocation_notice")
+        .eq("version", "2")
+        .eq("granted", true),
     ]);
     if (prof) {
       setProfile(prof as Profile);

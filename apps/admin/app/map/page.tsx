@@ -4,7 +4,7 @@ import { LiveMap } from "@/components/LiveMap";
 export const dynamic = "force-dynamic";
 
 export default async function MapPage() {
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const { data } = await supabase
     .from("v_shift_report")
     .select("id, user_id, first_name, last_name, site_name, start_lat, start_lng, started_at, out_of_zone")

@@ -40,9 +40,10 @@ we store hours and resolve `hourly_rate` (admin) → `self_hourly_rate` (worker)
 avoids stale/incorrect payroll numbers and keeps the "company rate vs personal estimate" label
 honest. Overtime/night/holiday multipliers are explicitly **out of scope** — surfaced in a hint.
 
-## D-012 — Consent stored in its own `consents` table, not a profile boolean
-We need the *timestamp* and *version* of the consent text for GDPR defensibility, and a worker may
-re-consent after a policy change. A boolean on `profiles` can't express that.
+## D-012 — Location-notice acknowledgement stored separately, not as a profile boolean
+We need the *timestamp* and *version* of the notice shown to a worker. In an employment context this
+acknowledgement is not treated as blanket GDPR consent: the employer must determine and document
+the lawful basis. A boolean on `profiles` cannot express which notice version was shown.
 
 ## D-011 — Stale-shift handling: flag, don't auto-close silently
 A shift open >16h gets `is_stale = true` and notifies the admin, but is **not** force-closed with a

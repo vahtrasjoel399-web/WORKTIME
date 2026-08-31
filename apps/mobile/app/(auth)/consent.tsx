@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, StyleSheet, Pressable } from "react-native";
+import { Alert, View, StyleSheet, Pressable } from "react-native";
 import { router } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useSession } from "@/state/session";
@@ -8,8 +8,9 @@ import { Screen, Title, Body, Muted } from "@/components/ui";
 import { font, radius, space } from "@/theme/tokens";
 import { t } from "@/i18n";
 
-// GDPR: first-run consent for geolocation processing. The fact of consent, with a
-// timestamp and version, is written to the DB. (spec §5, DECISIONS D-012)
+// First-run location notice. In an employment context the employer, not this
+// button, must determine and document the lawful basis. We store that the worker
+// received and acknowledged the notice; this is not blanket GDPR consent.
 export default function Consent() {
   const { theme } = useTheme();
   const { userId, refreshProfile } = useSession();
@@ -18,12 +19,17 @@ export default function Consent() {
   async function agree() {
     if (!userId) return;
     setBusy(true);
-    await supabase.from("consents").insert({
+    const { error } = await supabase.from("consents").insert({
       user_id: userId,
-      kind: "geolocation",
-      version: "1",
+      kind: "geolocation_notice",
+      version: "2",
       granted: true,
     });
+    if (error) {
+      setBusy(false);
+      Alert.alert(t("common.error"), error.message);
+      return;
+    }
     await refreshProfile();
     setBusy(false);
     router.replace("/(app)");

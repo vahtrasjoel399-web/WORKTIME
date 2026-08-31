@@ -13,18 +13,19 @@ const DOW = ["E", "T", "K", "N", "R", "L", "P"];
 export default async function ReportsPage({
   searchParams,
 }: {
-  searchParams: { from?: string; to?: string };
+  searchParams: Promise<{ from?: string; to?: string }>;
 }) {
+  const query = await searchParams;
   // Pay runs weekly (D-015), so the period defaults to the running week and the
   // page rolls over to the next one by itself every Monday.
   const thisWeek = weekRange(new Date());
-  const fromStr = searchParams.from ?? thisWeek.from;
-  const toStr = searchParams.to ?? thisWeek.to;
+  const fromStr = query.from ?? thisWeek.from;
+  const toStr = query.to ?? thisWeek.to;
   const from = parseYmd(fromStr);
   const to = parseYmd(toStr);
   to.setUTCDate(to.getUTCDate() + 1); // inclusive end day
 
-  const supabase = supabaseServer();
+  const supabase = await supabaseServer();
   const [{ data: workers }, { data: shiftsRaw }] = await Promise.all([
     supabase.from("profiles").select("*").eq("role", "worker").order("last_name"),
     supabase

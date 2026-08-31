@@ -15,7 +15,7 @@ export function DeleteWorker({ id, name }: { id: string; name: string }) {
     const res = await fetch("/api/gdpr", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id: id }),
+      body: JSON.stringify({ user_id: id, confirmation: "DELETE" }),
     });
     setBusy(false);
     if (res.ok) router.refresh();

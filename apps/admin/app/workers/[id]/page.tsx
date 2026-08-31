@@ -16,17 +16,18 @@ export default async function WorkerCard({
   params,
   searchParams,
 }: {
-  params: { id: string };
-  searchParams: { y?: string; m?: string };
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ y?: string; m?: string }>;
 }) {
-  const supabase = supabaseServer();
+  const [{ id }, query] = await Promise.all([params, searchParams]);
+  const supabase = await supabaseServer();
   const now = new Date();
-  const year = searchParams.y ? parseInt(searchParams.y) : now.getFullYear();
-  const month = searchParams.m ? parseInt(searchParams.m) : now.getMonth();
+  const year = query.y ? parseInt(query.y) : now.getFullYear();
+  const month = query.m ? parseInt(query.m) : now.getMonth();
   const { from, to } = monthRange(year, month);
 
   const [{ data: worker }, { data: sites }] = await Promise.all([
-    supabase.from("profiles").select("*").eq("id", params.id).single(),
+    supabase.from("profiles").select("*").eq("id", id).single(),
     supabase.from("sites").select("*"),
   ]);
   if (!worker) notFound();
@@ -34,7 +35,7 @@ export default async function WorkerCard({
   const { data: shiftsRaw } = await supabase
     .from("v_shift_report")
     .select("*")
-    .eq("user_id", params.id)
+    .eq("user_id", id)
     .gte("started_at", from)
     .lt("started_at", to)
     .order("started_at", { ascending: false });

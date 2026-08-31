@@ -41,7 +41,7 @@ export const et: Messages = {
     body:
       "Et kinnitada, kus vahetus algas ja lõppes, salvestab rakendus asukoha täpselt kahel hetkel: kui vajutad „Alusta vahetust“ ja kui vajutad „Lõpeta vahetus“. Taustal ega nende hetkede vahel asukohta ei jälgita.",
     retention: "Asukohapunkte hoitakse 24 kuud, seejärel kustutatakse.",
-    agree: "Nõustun",
+    agree: "Sain aru",
     decline: "Mitte praegu",
     declined: "Saad selle hiljem seadetes sisse lülitada. Seniks asukohta ei salvestata.",
   },
