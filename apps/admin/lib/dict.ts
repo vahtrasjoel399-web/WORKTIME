@@ -37,6 +37,8 @@ export const dict: Dict = {
   errCompany: { et: "Ettevõtte loomine ebaõnnestus.", ru: "Не удалось создать компанию.", en: "Could not create the company." },
   confirmEmail: { et: "Kinnita e-post ja logi sisse.", ru: "Подтвердите почту и войдите.", en: "Confirm your email, then sign in." },
   enterEmailFirst: { et: "Sisesta esmalt e-post.", ru: "Сначала введите почту.", en: "Enter your email first." },
+  emailInvalid: { et: "Kontrolli e-posti aadressi.", ru: "Проверьте адрес электронной почты.", en: "Check the email address." },
+  emailTypo: { et: "Kas mõtlesid", ru: "Возможно, вы имели в виду", en: "Did you mean" },
   resetSent: { et: "Parooli taastamise link saadeti e-postile.", ru: "Ссылка для восстановления отправлена на почту.", en: "A password reset link was sent to your email." },
   setPassword: { et: "Määra parool", ru: "Установите пароль", en: "Set your password" },
   setPasswordHint: { et: "Kasuta vähemalt 10 tähemärki.", ru: "Используйте минимум 10 символов.", en: "Use at least 10 characters." },

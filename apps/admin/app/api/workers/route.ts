@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer, supabaseService } from "@/lib/supabase-server";
+import { emailSuggestion, isValidEmail, normalizeEmail } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
@@ -17,13 +18,17 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => null);
   const { first_name, last_name, email, phone, hourly_rate, locale } = body ?? {};
-  const cleanEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
+  const cleanEmail = typeof email === "string" ? normalizeEmail(email) : "";
   const cleanFirst = typeof first_name === "string" ? first_name.trim() : "";
   const cleanLast = typeof last_name === "string" ? last_name.trim() : "";
   if (!cleanFirst || cleanFirst.length > 80 || cleanLast.length > 80) {
     return new NextResponse("Invalid worker name", { status: 400 });
   }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail) || cleanEmail.length > 254) {
+  const suggestedEmail = emailSuggestion(cleanEmail);
+  if (suggestedEmail) {
+    return new NextResponse(`Check the email address. Did you mean ${suggestedEmail}?`, { status: 400 });
+  }
+  if (!isValidEmail(cleanEmail)) {
     return new NextResponse("Invalid email address", { status: 400 });
   }
   const rate = hourly_rate == null || hourly_rate === "" ? null : Number(hourly_rate);

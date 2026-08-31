@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 import { useI18n, LangSwitcher } from "@/components/I18nProvider";
+import { emailSuggestion, isValidEmail, normalizeEmail } from "@/lib/email";
 
 type Mode = "signin" | "worker" | "company";
 
@@ -28,6 +29,20 @@ export default function Login() {
     setShake((v) => v + 1);
   }
 
+  function checkedEmail(): string | null {
+    const clean = normalizeEmail(email);
+    const suggestion = emailSuggestion(clean);
+    if (suggestion) {
+      showError(`${t("emailTypo")} ${suggestion}?`);
+      return null;
+    }
+    if (!isValidEmail(clean)) {
+      showError(t("emailInvalid"));
+      return null;
+    }
+    return clean;
+  }
+
   async function routeByRole() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -38,16 +53,20 @@ export default function Login() {
 
   async function signIn(e: React.FormEvent) {
     e.preventDefault(); setBusy(true); setError(null);
-    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    const cleanEmail = checkedEmail();
+    if (!cleanEmail) { setBusy(false); return; }
+    const { error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
     if (error) { setBusy(false); return showError(t("errWrongCreds")); }
     await routeByRole(); setBusy(false);
   }
 
   async function registerWorker(e: React.FormEvent) {
     e.preventDefault(); setBusy(true); setError(null);
+    const cleanEmail = checkedEmail();
+    if (!cleanEmail) { setBusy(false); return; }
     const redirectTo = `${window.location.origin}/auth/callback`;
     const { data: su, error: se } = await supabase.auth.signUp({
-      email: email.trim(), password,
+      email: cleanEmail, password,
       options: { emailRedirectTo: redirectTo, data: { registration_kind: "worker", join_code: code.trim().toUpperCase(), first_name: first.trim(), last_name: last.trim() } },
     });
     if (se) { setBusy(false); return showError(se.message.includes("already") ? t("errExists") : t("errCreate")); }
@@ -59,9 +78,11 @@ export default function Login() {
 
   async function createCompany(e: React.FormEvent) {
     e.preventDefault(); setBusy(true); setError(null);
+    const cleanEmail = checkedEmail();
+    if (!cleanEmail) { setBusy(false); return; }
     const redirectTo = `${window.location.origin}/auth/callback`;
     const { data: su, error: se } = await supabase.auth.signUp({
-      email: email.trim(), password,
+      email: cleanEmail, password,
       options: { emailRedirectTo: redirectTo, data: { registration_kind: "company", company_name: company.trim(), first_name: first.trim(), last_name: last.trim() } },
     });
     if (se) { setBusy(false); return showError(se.message.includes("already") ? t("errExists") : t("errCreate")); }
@@ -74,8 +95,9 @@ export default function Login() {
 
   async function resetPassword() {
     setError(null); setNotice(null);
-    const clean = email.trim();
-    if (!clean) return showError(t("enterEmailFirst"));
+    if (!email.trim()) return showError(t("enterEmailFirst"));
+    const clean = checkedEmail();
+    if (!clean) return;
     const { error } = await supabase.auth.resetPasswordForEmail(clean, {
       redirectTo: `${window.location.origin}/auth/callback?next=/set-password`,
     });

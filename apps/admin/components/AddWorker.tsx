@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { emailSuggestion, isValidEmail } from "@/lib/email";
 
 const empty = { first_name: "", last_name: "", email: "", phone: "", hourly_rate: "" };
 
@@ -15,6 +16,9 @@ export function AddWorker() {
   async function submit() {
     setBusy(true);
     setError(null);
+    const suggestion = emailSuggestion(form.email);
+    if (suggestion) { setBusy(false); return setError(`Kontrolli e-posti. Kas mõtlesid ${suggestion}?`); }
+    if (!isValidEmail(form.email)) { setBusy(false); return setError("Kontrolli e-posti aadressi."); }
     const res = await fetch("/api/workers", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
