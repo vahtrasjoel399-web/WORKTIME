@@ -3,6 +3,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 import type { Profile, Site } from "@/lib/types";
+import { ConfirmDialog } from "./ConfirmDialog";
+import { useToast } from "./ToastProvider";
 
 export function WorkerAdmin({ worker, sites }: { worker: Profile & { default_site_id: string | null }; sites: Site[] }) {
   const supabase = supabaseBrowser();
@@ -11,10 +13,13 @@ export function WorkerAdmin({ worker, sites }: { worker: Profile & { default_sit
   const [siteId, setSiteId] = useState(worker.default_site_id ?? "");
   const [active, setActive] = useState(worker.is_active);
   const [saved, setSaved] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const toast = useToast();
 
   async function save() {
     const parsed = rate.trim() === "" ? null : parseFloat(rate.replace(",", "."));
-    await supabase
+    const { error } = await supabase
       .from("profiles")
       .update({
         hourly_rate: parsed,
@@ -22,6 +27,8 @@ export function WorkerAdmin({ worker, sites }: { worker: Profile & { default_sit
         is_active: active,
       })
       .eq("id", worker.id);
+    if (error) return toast("Salvestamine ebaõnnestus.", "error");
+    toast("Muudatused salvestati.");
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
     router.refresh();
@@ -40,15 +47,15 @@ export function WorkerAdmin({ worker, sites }: { worker: Profile & { default_sit
   }
 
   async function deleteData() {
-    if (!confirm(`Kustutada jäädavalt ${worker.first_name} ${worker.last_name} ja kõik andmed? Seda ei saa tagasi võtta.`))
-      return;
+    setDeleting(true);
     const res = await fetch("/api/gdpr", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ user_id: worker.id, confirmation: "DELETE" }),
     });
-    if (res.ok) router.push("/");
-    else alert("Kustutamine ebaõnnestus.");
+    setDeleting(false);
+    if (res.ok) { toast("Töötaja kustutati."); router.push("/"); }
+    else toast("Kustutamine ebaõnnestus.", "error");
   }
 
   return (
@@ -100,13 +107,14 @@ export function WorkerAdmin({ worker, sites }: { worker: Profile & { default_sit
             Ekspordi andmed
           </button>
           <button
-            onClick={deleteData}
+            onClick={() => setConfirming(true)}
             className="flex-1 rounded-lg border border-alert py-2 text-sm text-alert hover:bg-alert/10"
           >
             Kustuta töötaja
           </button>
         </div>
       </div>
+      <ConfirmDialog open={confirming} title="Kustuta töötaja?" body={`${worker.first_name} ${worker.last_name} konto ja kõik seotud andmed kustutatakse jäädavalt.`} confirmLabel="Kustuta" busy={deleting} onConfirm={deleteData} onCancel={() => setConfirming(false)} />
     </div>
   );
 }

@@ -9,6 +9,7 @@ import { distanceLabel, matchSite, shortAddress } from "@/lib/geo";
 import { AddWorker } from "@/components/AddWorker";
 import { PendingWorkers } from "@/components/PendingWorkers";
 import { DeleteWorker } from "@/components/DeleteWorker";
+import { Icon } from "@/components/Icon";
 import type { Profile, Site } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -101,7 +102,42 @@ export default async function WorkersPage() {
 
       <PendingWorkers pending={pending} />
 
-      <div className="overflow-x-auto rounded-2xl border border-border bg-surface">
+      {list.length === 0 && (
+        <div className="rounded-2xl border border-dashed border-border bg-surface px-6 py-12 text-center">
+          <Icon name="empty" className="mx-auto mb-4 h-10 w-10 text-muted" />
+          <h2 className="font-display text-lg font-semibold">Töötajaid pole veel</h2>
+          <p className="mx-auto mt-1 max-w-sm text-sm text-muted">Lisa esimene töötaja või jaga ettevõtte koodi, et tiim saaks liituda.</p>
+        </div>
+      )}
+
+      <div className="space-y-3 sm:hidden">
+        {list.map((w, i) => {
+          const open = openBy.get(w.id);
+          const fix = open ? matchSite(open.start_lat, open.start_lng, siteList) : null;
+          const site = open?.site_id ? siteById.get(open.site_id) ?? null : fix?.site ?? null;
+          const secs = weekSeconds.get(w.id) ?? 0;
+          const rate = w.hourly_rate ?? w.self_hourly_rate ?? null;
+          return <Link key={w.id} href={`/workers/${w.id}`} className="rise block rounded-2xl border border-border bg-surface p-4 shadow-sm transition active:scale-[.99]" style={{ animationDelay: `${i * 35}ms` }}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="truncate font-display text-lg font-semibold">{w.first_name} {w.last_name}</div>
+                <div className={`mt-1 inline-flex items-center gap-1.5 text-sm ${open ? "text-live" : "text-muted"}`}>
+                  <span className={`h-2 w-2 rounded-full ${open ? "animate-pulse bg-live" : "bg-border"}`} />
+                  {open ? "Vahetuses" : "Vaba"}
+                </div>
+              </div>
+              <Icon name="arrow" className="mt-1 h-5 w-5 shrink-0 text-muted" />
+            </div>
+            {open && <div className="mt-3 rounded-xl bg-bg px-3 py-2 text-sm"><span className="text-muted">Objekt</span><div className={`font-medium ${site ? "" : "text-alert"}`}>{site?.name ?? (fix?.nearest ? "Väljaspool tsooni" : "Objekt tuvastamata")}</div></div>}
+            <div className="mt-4 grid grid-cols-2 gap-3 border-t border-border pt-3">
+              <div><div className="text-xs text-muted">Tunnid sel nädalal</div><div className="tabular mt-0.5 font-semibold">{hours1(secs)} h</div></div>
+              <div className="text-right"><div className="text-xs text-muted">Teenitud</div><div className="tabular mt-0.5 font-semibold text-signal">{rate != null ? money(weekEarned.get(w.id) ?? 0, w.currency) : "—"}</div></div>
+            </div>
+          </Link>;
+        })}
+      </div>
+
+      <div className="hidden overflow-x-auto rounded-2xl border border-border bg-surface sm:block">
         <table className="w-full text-sm">
           <thead className="border-b border-border text-left text-muted">
             <tr>

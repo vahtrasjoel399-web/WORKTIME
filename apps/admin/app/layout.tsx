@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from "next";
 import { Nav } from "@/components/Nav";
 import { ThemeInit } from "@/components/ThemeInit";
 import { I18nProvider } from "@/components/I18nProvider";
+import { ToastProvider } from "@/components/ToastProvider";
 
 export const metadata: Metadata = {
   title: "Tööaeg",
@@ -21,8 +22,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen font-sans antialiased">
         <ThemeInit />
         <I18nProvider>
-          <Nav />
-          <main className="mx-auto w-full max-w-6xl overflow-x-hidden px-4 py-5 pb-24 sm:px-5 sm:py-8">{children}</main>
+          <ToastProvider>
+            <Nav />
+            <main className="mx-auto w-full max-w-6xl overflow-x-hidden px-4 py-5 pb-24 sm:px-5 sm:py-8">{children}</main>
+          </ToastProvider>
         </I18nProvider>
       </body>
     </html>
