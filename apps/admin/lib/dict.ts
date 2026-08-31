@@ -24,6 +24,7 @@ export const dict: Dict = {
   signin: { et: "Logi sisse", ru: "Войти", en: "Sign in" },
   createWorker: { et: "Loo töötaja konto", ru: "Создать аккаунт работника", en: "Create worker account" },
   createCompany: { et: "Loo ettevõte", ru: "Создать компанию", en: "Create company" },
+  forgotPassword: { et: "Unustasid parooli?", ru: "Забыли пароль?", en: "Forgot password?" },
 
   // hints & errors
   autoRole: { et: "Süsteem tuvastab ise: töötaja või tööandja.", ru: "Система сама определит: работник или начальник.", en: "The system detects your role automatically." },
@@ -35,6 +36,16 @@ export const dict: Dict = {
   errRegister: { et: "Registreerimine ebaõnnestus.", ru: "Не удалось зарегистрироваться.", en: "Could not register." },
   errCompany: { et: "Ettevõtte loomine ebaõnnestus.", ru: "Не удалось создать компанию.", en: "Could not create the company." },
   confirmEmail: { et: "Kinnita e-post ja logi sisse.", ru: "Подтвердите почту и войдите.", en: "Confirm your email, then sign in." },
+  enterEmailFirst: { et: "Sisesta esmalt e-post.", ru: "Сначала введите почту.", en: "Enter your email first." },
+  resetSent: { et: "Parooli taastamise link saadeti e-postile.", ru: "Ссылка для восстановления отправлена на почту.", en: "A password reset link was sent to your email." },
+  setPassword: { et: "Määra parool", ru: "Установите пароль", en: "Set your password" },
+  setPasswordHint: { et: "Kasuta vähemalt 10 tähemärki.", ru: "Используйте минимум 10 символов.", en: "Use at least 10 characters." },
+  newPassword: { et: "Uus parool", ru: "Новый пароль", en: "New password" },
+  confirmPassword: { et: "Korda parooli", ru: "Повторите пароль", en: "Confirm password" },
+  savePassword: { et: "Salvesta parool", ru: "Сохранить пароль", en: "Save password" },
+  passwordTooShort: { et: "Parool peab olema vähemalt 10 tähemärki.", ru: "Пароль должен содержать минимум 10 символов.", en: "Password must contain at least 10 characters." },
+  passwordMismatch: { et: "Paroolid ei ühti.", ru: "Пароли не совпадают.", en: "Passwords do not match." },
+  passwordUpdateFailed: { et: "Parooli salvestamine ebaõnnestus.", ru: "Не удалось сохранить пароль.", en: "Could not save the password." },
 
   companyCreated: { et: "Ettevõte loodud 🎉", ru: "Компания создана 🎉", en: "Company created 🎉" },
   shareCode: { et: "Jaga seda koodi töötajatega — nad sisestavad selle registreerumisel.", ru: "Дайте этот код работникам — они введут его при регистрации.", en: "Share this code with workers — they enter it when registering." },

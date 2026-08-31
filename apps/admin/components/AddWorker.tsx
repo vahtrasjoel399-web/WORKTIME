@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-const empty = { first_name: "", last_name: "", email: "", phone: "", hourly_rate: "", temp_password: "" };
+const empty = { first_name: "", last_name: "", email: "", phone: "", hourly_rate: "" };
 
 export function AddWorker() {
   const router = useRouter();
@@ -10,6 +10,7 @@ export function AddWorker() {
   const [form, setForm] = useState(empty);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sent, setSent] = useState(false);
 
   async function submit() {
     setBusy(true);
@@ -25,7 +26,7 @@ export function AddWorker() {
     setBusy(false);
     if (!res.ok) return setError(await res.text());
     setForm(empty);
-    setOpen(false);
+    setSent(true);
     router.refresh();
   }
 
@@ -41,17 +42,20 @@ export function AddWorker() {
   return (
     <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 p-4" onClick={() => setOpen(false)}>
       <div className="w-full max-w-md space-y-3 rounded-2xl border border-border bg-surface p-6" onClick={(e) => e.stopPropagation()}>
-        <h3 className="font-display text-lg font-semibold">Lisa töötaja</h3>
+        <h3 className="font-display text-lg font-semibold">{sent ? "Kutse saadetud" : "Lisa töötaja"}</h3>
+        {sent ? (
+          <>
+            <p className="text-sm text-muted">Töötaja sai turvalise e-posti kutse, mille kaudu ta määrab ise parooli.</p>
+            <button onClick={() => { setOpen(false); setSent(false); }} className="w-full rounded-lg bg-text py-2 font-semibold text-bg">Valmis</button>
+          </>
+        ) : (<>
         <div className="flex gap-2">
           <input className={input} placeholder="Eesnimi" value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} />
           <input className={input} placeholder="Perekonnanimi" value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} />
         </div>
         <input className={input} placeholder="E-post" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
         <input className={input} placeholder="Telefon (valikuline)" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-        <div className="flex gap-2">
-          <input className={input} placeholder="Tunnitasu (valikuline)" value={form.hourly_rate} onChange={(e) => setForm({ ...form, hourly_rate: e.target.value })} />
-          <input className={input} placeholder="Ajutine parool" value={form.temp_password} onChange={(e) => setForm({ ...form, temp_password: e.target.value })} />
-        </div>
+        <input className={input} inputMode="decimal" placeholder="Tunnitasu (valikuline)" value={form.hourly_rate} onChange={(e) => setForm({ ...form, hourly_rate: e.target.value })} />
         {error && <p className="text-sm text-alert">{error}</p>}
         <div className="flex gap-2 pt-1">
           <button onClick={submit} disabled={busy} className="flex-1 rounded-lg bg-text py-2 font-semibold text-bg disabled:opacity-60">
@@ -61,7 +65,8 @@ export function AddWorker() {
             Tühista
           </button>
         </div>
-        <p className="text-xs text-muted">Töötaja logib sisse e-posti ja ajutise parooliga. Ise registreeruda ei saa.</p>
+        <p className="text-xs text-muted">Saadame töötajale kutse. Parooli määrab töötaja ise — seda ei pea sõnumiga jagama.</p>
+        </>)}
       </div>
     </div>
   );

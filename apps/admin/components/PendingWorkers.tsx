@@ -5,7 +5,7 @@ import { supabaseBrowser } from "@/lib/supabase-browser";
 import type { Profile } from "@/lib/types";
 
 // Self-registered workers awaiting the employer's decision. Accept -> is_approved
-// true (they can start clocking in). Reject -> delete their profile.
+// true (they can start clocking in). Reject -> server deletes both Auth user and profile.
 export function PendingWorkers({ pending }: { pending: Profile[] }) {
   const supabase = supabaseBrowser();
   const router = useRouter();
@@ -22,8 +22,13 @@ export function PendingWorkers({ pending }: { pending: Profile[] }) {
   async function reject(id: string) {
     if (!confirm("Lükata taotlus tagasi ja kustutada see konto?")) return;
     setBusy(id);
-    await supabase.from("profiles").delete().eq("id", id);
+    const res = await fetch("/api/workers", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: id, confirmation: "REJECT" }),
+    });
     setBusy(null);
+    if (!res.ok) return alert("Taotluse tagasilükkamine ebaõnnestus.");
     router.refresh();
   }
 

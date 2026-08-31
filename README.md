@@ -67,8 +67,10 @@ DECISIONS.md     Running log of technical decisions
    - **Email** (email + password) — used for invited workers and admins.
    - **Phone** (SMS OTP) — requires an SMS provider (Twilio/MessageBird). Configure under
      Authentication → Providers → Phone. Phone login is optional; email works out of the box.
-4. **Disable public sign-ups.** Authentication → Settings → *Allow new users to sign up* → **off**.
-   Accounts are created only by an admin (see below), never self-registration.
+4. **Production email.** Keep email sign-up enabled for company-code registration, configure a
+   custom SMTP sender, enable email confirmation, set the production Site URL, and allow
+   `<production-origin>/auth/callback` as an Auth redirect URL. Worker invitations and password
+   recovery use this callback. Unknown users cannot join a company without its join code.
 5. Deploy Edge Functions:
 
    ```bash
@@ -139,6 +141,7 @@ See [`.env.example`](.env.example). Summary:
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | mobile | anon key (safe in client, RLS-protected) |
 | `NEXT_PUBLIC_SUPABASE_URL` | admin | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | admin | anon key |
+| `NEXT_PUBLIC_SITE_URL` | admin | production origin used for secure auth/invitation redirects |
 | `SUPABASE_SERVICE_ROLE_KEY` | admin (server only) | server-side exports / GDPR delete — **never** shipped to the browser or the mobile app |
 | `MAPTILER_KEY` *(optional)* | admin | nicer map tiles; falls back to a free OSM raster style |
 

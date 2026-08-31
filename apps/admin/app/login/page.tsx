@@ -20,6 +20,13 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [joinCode, setJoinCode] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [shake, setShake] = useState(0);
+
+  function showError(message: string) {
+    setError(message);
+    setShake((v) => v + 1);
+  }
 
   async function routeByRole() {
     const { data: { user } } = await supabase.auth.getUser();
@@ -32,28 +39,48 @@ export default function Login() {
   async function signIn(e: React.FormEvent) {
     e.preventDefault(); setBusy(true); setError(null);
     const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-    if (error) { setBusy(false); return setError(t("errWrongCreds")); }
+    if (error) { setBusy(false); return showError(t("errWrongCreds")); }
     await routeByRole(); setBusy(false);
   }
 
   async function registerWorker(e: React.FormEvent) {
     e.preventDefault(); setBusy(true); setError(null);
-    const { data: su, error: se } = await supabase.auth.signUp({ email: email.trim(), password });
-    if (se) { setBusy(false); return setError(se.message.includes("already") ? t("errExists") : t("errCreate")); }
+    const redirectTo = `${window.location.origin}/auth/callback`;
+    const { data: su, error: se } = await supabase.auth.signUp({
+      email: email.trim(), password,
+      options: { emailRedirectTo: redirectTo, data: { registration_kind: "worker", join_code: code.trim().toUpperCase(), first_name: first.trim(), last_name: last.trim() } },
+    });
+    if (se) { setBusy(false); return showError(se.message.includes("already") ? t("errExists") : t("errCreate")); }
+    if (!su.session) { setBusy(false); setNotice(t("confirmEmail")); return; }
     const { error: re } = await supabase.rpc("register_worker", { p_join_code: code.trim(), worker_first: first.trim(), worker_last: last.trim() });
-    if (re) { setBusy(false); return setError(re.message.includes("invalid") ? t("errBadCode") : t("errRegister")); }
-    if (!su.session) { setBusy(false); return setError(t("confirmEmail")); }
+    if (re) { setBusy(false); return showError(re.message.includes("invalid") ? t("errBadCode") : t("errRegister")); }
     router.push("/me"); router.refresh(); setBusy(false);
   }
 
   async function createCompany(e: React.FormEvent) {
     e.preventDefault(); setBusy(true); setError(null);
-    const { data: su, error: se } = await supabase.auth.signUp({ email: email.trim(), password });
-    if (se) { setBusy(false); return setError(se.message.includes("already") ? t("errExists") : t("errCreate")); }
+    const redirectTo = `${window.location.origin}/auth/callback`;
+    const { data: su, error: se } = await supabase.auth.signUp({
+      email: email.trim(), password,
+      options: { emailRedirectTo: redirectTo, data: { registration_kind: "company", company_name: company.trim(), first_name: first.trim(), last_name: last.trim() } },
+    });
+    if (se) { setBusy(false); return showError(se.message.includes("already") ? t("errExists") : t("errCreate")); }
+    if (!su.session) { setBusy(false); setNotice(t("confirmEmail")); return; }
     const { data: c, error: re } = await supabase.rpc("register_company", { company_name: company.trim(), admin_first: first.trim(), admin_last: last.trim() });
     setBusy(false);
-    if (re) return setError(t("errCompany"));
+    if (re) return showError(t("errCompany"));
     setJoinCode(c as string);
+  }
+
+  async function resetPassword() {
+    setError(null); setNotice(null);
+    const clean = email.trim();
+    if (!clean) return showError(t("enterEmailFirst"));
+    const { error } = await supabase.auth.resetPasswordForEmail(clean, {
+      redirectTo: `${window.location.origin}/auth/callback?next=/set-password`,
+    });
+    if (error) return showError(t("errCreate"));
+    setNotice(t("resetSent"));
   }
 
   if (joinCode) {
@@ -76,7 +103,7 @@ export default function Login() {
 
   return (
     <div className="flex min-h-[80vh] items-center justify-center px-4">
-      <div className="w-full max-w-sm space-y-5 rounded-2xl border border-border bg-surface p-8">
+      <div className="auth-card w-full max-w-sm space-y-5 rounded-2xl border border-border bg-surface p-5 shadow-xl shadow-black/5 sm:p-8">
         <LangSwitcher />
         <div>
           <h1 className="font-display text-2xl font-bold">Tööaeg</h1>
@@ -93,8 +120,10 @@ export default function Login() {
           <form onSubmit={signIn} className="space-y-4">
             <input className={input} placeholder={t("email")} type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             <input className={input} placeholder={t("password")} type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-            {error && <p className="text-sm text-alert">{error}</p>}
+            {error && <p key={shake} role="alert" className="error-shake rounded-lg border border-alert/30 bg-alert/10 px-3 py-2 text-sm text-alert">{error}</p>}
+            {notice && <p role="status" className="rounded-lg border border-live/30 bg-live/10 px-3 py-2 text-sm text-live">{notice}</p>}
             <button disabled={busy} className="w-full rounded-lg bg-text py-3 font-semibold text-bg disabled:opacity-60">{busy ? "…" : t("signin")}</button>
+            <button type="button" onClick={resetPassword} className="w-full text-sm text-muted hover:text-signal">{t("forgotPassword")}</button>
             <p className="text-center text-xs text-muted">{t("autoRole")}</p>
           </form>
         )}
@@ -108,7 +137,8 @@ export default function Login() {
             <input className={input} placeholder={t("email")} type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             <input className={input} placeholder={t("password")} type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
             <input className={`${input} tracking-[0.3em] uppercase`} placeholder={t("companyCode")} value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} />
-            {error && <p className="text-sm text-alert">{error}</p>}
+            {error && <p key={shake} role="alert" className="error-shake rounded-lg border border-alert/30 bg-alert/10 px-3 py-2 text-sm text-alert">{error}</p>}
+            {notice && <p role="status" className="rounded-lg border border-live/30 bg-live/10 px-3 py-2 text-sm text-live">{notice}</p>}
             <button disabled={busy} className="w-full rounded-lg bg-signal py-3 font-semibold text-[#0B1320] disabled:opacity-60">{busy ? "…" : t("createWorker")}</button>
             <p className="text-center text-xs text-muted">{t("codeFromEmployer")}</p>
           </form>
@@ -123,7 +153,8 @@ export default function Login() {
             </div>
             <input className={input} placeholder={t("email")} type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             <input className={input} placeholder={t("password")} type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-            {error && <p className="text-sm text-alert">{error}</p>}
+            {error && <p key={shake} role="alert" className="error-shake rounded-lg border border-alert/30 bg-alert/10 px-3 py-2 text-sm text-alert">{error}</p>}
+            {notice && <p role="status" className="rounded-lg border border-live/30 bg-live/10 px-3 py-2 text-sm text-live">{notice}</p>}
             <button disabled={busy} className="w-full rounded-lg bg-text py-3 font-semibold text-bg disabled:opacity-60">{busy ? "…" : t("createCompany")}</button>
           </form>
         )}

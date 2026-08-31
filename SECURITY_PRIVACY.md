@@ -21,6 +21,8 @@ This document describes technical safeguards, not a certification of GDPR compli
 - Completed worker punches are immutable; only an admin can correct them.
 - Privileged export and maintenance functions are executable only by `service_role`.
 - The first-run location screen records acknowledgement of a versioned notice, not blanket consent.
+- New workers receive one-time email invitations and set their own password; admins do not share passwords.
+- Rejected registrations remove both the profile and its authentication account.
 
 ## Deployment requirements
 

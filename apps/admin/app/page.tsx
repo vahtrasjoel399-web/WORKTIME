@@ -70,7 +70,7 @@ export default async function WorkersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-end justify-between">
+      <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="font-display text-3xl font-bold">Töötajad</h1>
           <p className="mt-1 text-sm text-muted">
@@ -88,10 +88,10 @@ export default async function WorkersPage() {
             </p>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="grid grid-cols-2 items-center gap-2 sm:flex">
           <Link
             href="/reports"
-            className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:border-signal"
+            className="flex items-center justify-center rounded-lg border border-border px-3 py-2 text-center text-sm font-medium hover:border-signal sm:px-4"
           >
             Nädala aruanne →
           </Link>
