@@ -48,6 +48,9 @@ export const ru: Messages = {
   home: {
     start: "Начать смену",
     finish: "Закончить смену",
+    finishConfirmTitle: "Завершить смену?",
+    finishConfirmMessage: "Таймер остановится, и смена будет сохранена.",
+    finishConfirmAction: "Завершить смену",
     pause: "Сделать перерыв",
     resume: "Продолжить",
     onBreak: "Перерыв",

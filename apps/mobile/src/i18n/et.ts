@@ -48,6 +48,9 @@ export const et: Messages = {
   home: {
     start: "Alusta vahetust",
     finish: "Lõpeta vahetus",
+    finishConfirmTitle: "Kas lõpetada vahetus?",
+    finishConfirmMessage: "Taimer peatub ja vahetus salvestatakse.",
+    finishConfirmAction: "Lõpeta vahetus",
     pause: "Tee paus",
     resume: "Jätka",
     onBreak: "Pausil",

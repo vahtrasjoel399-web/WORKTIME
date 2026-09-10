@@ -85,6 +85,16 @@ export async function getOpenShift(userId: string): Promise<LocalShift | null> {
   );
 }
 
+export async function getOpenBreak(shiftLocalId: string): Promise<LocalBreak | null> {
+  const db = await getDb();
+  return (
+    (await db.getFirstAsync<LocalBreak>(
+      `select * from breaks_local where shift_local_id=? and ended_at is null order by started_at asc limit 1`,
+      [shiftLocalId],
+    )) ?? null
+  );
+}
+
 export async function startShift(input: Omit<LocalShift, "local_id" | "remote_id" | "synced" | "status" | "ended_at" | "end_lat" | "end_lng" | "end_accuracy_m" | "end_address">): Promise<LocalShift> {
   const db = await getDb();
   const row: LocalShift = {
@@ -133,6 +143,8 @@ export async function updateBreakSeconds(localId: string, seconds: number): Prom
 
 export async function beginBreak(shiftLocalId: string): Promise<LocalBreak> {
   const db = await getDb();
+  const existing = await getOpenBreak(shiftLocalId);
+  if (existing) return existing;
   const b: LocalBreak = { local_id: uuid(), shift_local_id: shiftLocalId, started_at: new Date().toISOString(), ended_at: null, synced: 0 };
   await db.runAsync(
     `insert into breaks_local (local_id, shift_local_id, started_at, ended_at, synced) values (?,?,?,?,0)`,
@@ -142,15 +154,19 @@ export async function beginBreak(shiftLocalId: string): Promise<LocalBreak> {
 }
 
 export async function endOpenBreak(shiftLocalId: string): Promise<number> {
-  // closes the currently-open break and returns its duration in seconds
+  // Close every open row to recover safely from historical double taps. Their
+  // intervals overlap, so duration starts at the earliest row and is counted once.
   const db = await getDb();
   const open = await db.getFirstAsync<LocalBreak>(
-    `select * from breaks_local where shift_local_id=? and ended_at is null limit 1`,
+    `select * from breaks_local where shift_local_id=? and ended_at is null order by started_at asc limit 1`,
     [shiftLocalId],
   );
   if (!open) return 0;
   const now = new Date().toISOString();
-  await db.runAsync(`update breaks_local set ended_at=?, synced=0 where local_id=?`, [now, open.local_id]);
+  await db.runAsync(
+    `update breaks_local set ended_at=?, synced=0 where shift_local_id=? and ended_at is null`,
+    [now, shiftLocalId],
+  );
   return Math.max(0, Math.floor((Date.parse(now) - Date.parse(open.started_at)) / 1000));
 }
 

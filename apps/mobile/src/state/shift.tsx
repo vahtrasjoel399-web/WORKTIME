@@ -4,6 +4,7 @@ import {
   beginBreak,
   endOpenBreak,
   endShift as dbEndShift,
+  getOpenBreak,
   getOpenShift,
   startShift as dbStartShift,
   updateBreakSeconds,
@@ -49,21 +50,33 @@ export function useShiftController(profile: Profile | null) {
   });
   const breakStartRef = useRef<number | null>(null);
   const breakAccumRef = useRef<number>(0);
+  const operationInFlightRef = useRef(false);
 
   // hydrate from local db (works offline)
   useEffect(() => {
     if (!profile) return;
-    getOpenShift(profile.id).then((open) => {
+    let cancelled = false;
+    getOpenShift(profile.id).then(async (open) => {
+      if (cancelled) return;
       if (open) {
+        const openBreak = await getOpenBreak(open.local_id);
+        if (cancelled) return;
         breakAccumRef.current = open.break_seconds;
+        breakStartRef.current = openBreak ? Date.parse(openBreak.started_at) : null;
+        const activeBreakSeconds = openBreak
+          ? Math.max(0, Math.floor((Date.now() - Date.parse(openBreak.started_at)) / 1000))
+          : 0;
         setState((s) => ({
           ...s,
-          phase: "running",
+          phase: openBreak ? "onBreak" : "running",
           shift: open,
-          seconds: elapsedSeconds(open.started_at, open.break_seconds),
+          seconds: elapsedSeconds(open.started_at, open.break_seconds + activeBreakSeconds),
         }));
       }
     });
+    return () => {
+      cancelled = true;
+    };
   }, [profile]);
 
   // 1s tick — drives timer + earnings count-up
@@ -88,7 +101,8 @@ export function useShiftController(profile: Profile | null) {
   }, []);
 
   const start = useCallback(async () => {
-    if (!profile) return;
+    if (!profile || operationInFlightRef.current) return;
+    operationInFlightRef.current = true;
     setState((s) => ({ ...s, busy: true, gps: "pending", error: null }));
     try {
       const fix = await captureFix();
@@ -121,19 +135,34 @@ export function useShiftController(profile: Profile | null) {
         gps: null,
         error: e?.message === "location-denied" ? "location-denied" : "start-failed",
       }));
+    } finally {
+      operationInFlightRef.current = false;
     }
   }, [profile]);
 
   const finish = useCallback(async () => {
-    if (!state.shift) return;
+    if (!state.shift || operationInFlightRef.current) return;
+    operationInFlightRef.current = true;
     setState((s) => ({ ...s, busy: true, gps: "pending", error: null }));
     try {
-      const fix = await captureFix();
+      // Ending the shift is more important than the optional end-location fix.
+      // Browsers and phones can deny or temporarily fail GPS; that must never
+      // leave a worker clocked in overnight after they confirmed Finish.
+      let fix: {
+        lat: number | null;
+        lng: number | null;
+        accuracy_m: number | null;
+        address: string | null;
+      } = { lat: null, lng: null, accuracy_m: null, address: null };
+      try {
+        fix = await captureFix();
+      } catch {
+        // The nullable database fields intentionally support a missing fix.
+      }
       // close any open break first
-      if (breakStartRef.current) {
-        breakAccumRef.current += Math.floor((Date.now() - breakStartRef.current) / 1000);
+      if (breakStartRef.current !== null) {
+        breakAccumRef.current += await endOpenBreak(state.shift.local_id);
         breakStartRef.current = null;
-        await endOpenBreak(state.shift.local_id);
       }
       const endedAt = new Date().toISOString();
       await dbEndShift(state.shift.local_id, {
@@ -162,25 +191,32 @@ export function useShiftController(profile: Profile | null) {
         gps: null,
         error: e?.message === "location-denied" ? "location-denied" : "finish-failed",
       }));
+    } finally {
+      operationInFlightRef.current = false;
     }
   }, [state.shift]);
 
   const toggleBreak = useCallback(async () => {
-    if (!state.shift) return;
-    if (state.phase === "running") {
-      breakStartRef.current = Date.now();
-      await beginBreak(state.shift.local_id);
-      setState((s) => ({ ...s, phase: "onBreak" }));
-    } else if (state.phase === "onBreak") {
-      const added = await endOpenBreak(state.shift.local_id);
-      breakAccumRef.current += added;
-      breakStartRef.current = null;
-      await updateBreakSeconds(state.shift.local_id, breakAccumRef.current);
-      setState((s) => ({
-        ...s,
-        phase: "running",
-        seconds: elapsedSeconds(s.shift!.started_at, breakAccumRef.current),
-      }));
+    if (!state.shift || operationInFlightRef.current) return;
+    operationInFlightRef.current = true;
+    try {
+      if (state.phase === "running") {
+        const startedBreak = await beginBreak(state.shift.local_id);
+        breakStartRef.current = Date.parse(startedBreak.started_at);
+        setState((s) => ({ ...s, phase: "onBreak" }));
+      } else if (state.phase === "onBreak") {
+        const added = await endOpenBreak(state.shift.local_id);
+        breakAccumRef.current += added;
+        breakStartRef.current = null;
+        await updateBreakSeconds(state.shift.local_id, breakAccumRef.current);
+        setState((s) => ({
+          ...s,
+          phase: "running",
+          seconds: elapsedSeconds(s.shift!.started_at, breakAccumRef.current),
+        }));
+      }
+    } finally {
+      operationInFlightRef.current = false;
     }
   }, [state.phase, state.shift]);
 

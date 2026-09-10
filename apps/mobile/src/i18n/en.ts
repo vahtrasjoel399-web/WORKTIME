@@ -46,6 +46,9 @@ export const en = {
   home: {
     start: "Start shift",
     finish: "Finish shift",
+    finishConfirmTitle: "Finish this shift?",
+    finishConfirmMessage: "The timer will stop and this shift will be saved.",
+    finishConfirmAction: "Finish shift",
     pause: "Take a break",
     resume: "Resume",
     onBreak: "On break",

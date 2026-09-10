@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { View, StyleSheet, Pressable, useWindowDimensions } from "react-native";
+import { Alert, Platform, View, StyleSheet, Pressable, useWindowDimensions } from "react-native";
 import { MotiView, AnimatePresence } from "moti";
 import { useTheme } from "@/theme/ThemeProvider";
 import { Screen, Title, Muted, Body, Chip, Mono } from "@/components/ui";
@@ -31,6 +31,19 @@ export default function Home() {
   const showEarnings = profile?.show_earnings ?? true;
   const earnings = earningsFor(state.seconds, rate);
   const active = state.phase === "running" || state.phase === "onBreak";
+
+  const confirmFinish = () => {
+    if (Platform.OS === "web") {
+      if (window.confirm(`${t("home.finishConfirmTitle")}\n\n${t("home.finishConfirmMessage")}`)) {
+        void finish();
+      }
+      return;
+    }
+    Alert.alert(t("home.finishConfirmTitle"), t("home.finishConfirmMessage"), [
+      { text: t("common.cancel"), style: "cancel" },
+      { text: t("home.finishConfirmAction"), style: "destructive", onPress: () => void finish() },
+    ]);
+  };
 
   return (
     <Screen>
@@ -92,7 +105,7 @@ export default function Home() {
             <ShiftButton mode="start" label={t("home.start")} onPress={start} busy={state.busy} />
           ) : (
             <>
-              <ShiftButton mode="finish" label={t("home.finish")} onPress={finish} busy={state.busy} />
+              <ShiftButton mode="finish" label={t("home.finish")} onPress={confirmFinish} busy={state.busy} />
               <Pressable onPress={toggleBreak} style={[styles.breakBtn, { borderColor: theme.border }]}>
                 <Body style={{ color: theme.text, fontFamily: font.textMedium }}>
                   {state.phase === "onBreak" ? t("home.resume") : t("home.pause")}

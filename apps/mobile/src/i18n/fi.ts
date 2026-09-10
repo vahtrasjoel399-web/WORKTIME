@@ -48,6 +48,9 @@ export const fi: Messages = {
   home: {
     start: "Aloita vuoro",
     finish: "Lopeta vuoro",
+    finishConfirmTitle: "Lopetetaanko vuoro?",
+    finishConfirmMessage: "Ajastin pysähtyy ja vuoro tallennetaan.",
+    finishConfirmAction: "Lopeta vuoro",
     pause: "Pidä tauko",
     resume: "Jatka",
     onBreak: "Tauolla",

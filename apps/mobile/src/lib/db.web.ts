@@ -64,6 +64,15 @@ export async function getOpenShift(userId: string): Promise<LocalShift | null> {
   return rows.find((s) => s.user_id === userId && s.status === "open") ?? null;
 }
 
+export async function getOpenBreak(shiftLocalId: string): Promise<LocalBreak | null> {
+  const breaks = await readBreaks();
+  return (
+    breaks
+      .filter((b) => b.shift_local_id === shiftLocalId && b.ended_at === null)
+      .sort((a, b) => (a.started_at > b.started_at ? 1 : -1))[0] ?? null
+  );
+}
+
 export async function startShift(
   input: Omit<
     LocalShift,
@@ -112,6 +121,10 @@ export async function updateBreakSeconds(localId: string, seconds: number): Prom
 
 export async function beginBreak(shiftLocalId: string): Promise<LocalBreak> {
   const breaks = await readBreaks();
+  const existing = breaks
+    .filter((b) => b.shift_local_id === shiftLocalId && b.ended_at === null)
+    .sort((a, b) => (a.started_at > b.started_at ? 1 : -1))[0];
+  if (existing) return existing;
   const b: LocalBreak = { local_id: uuid(), shift_local_id: shiftLocalId, started_at: new Date().toISOString(), ended_at: null, synced: 0 };
   breaks.push(b);
   await writeBreaks(breaks);
@@ -120,13 +133,17 @@ export async function beginBreak(shiftLocalId: string): Promise<LocalBreak> {
 
 export async function endOpenBreak(shiftLocalId: string): Promise<number> {
   const breaks = await readBreaks();
-  const open = breaks.find((b) => b.shift_local_id === shiftLocalId && b.ended_at === null);
-  if (!open) return 0;
+  const open = breaks
+    .filter((b) => b.shift_local_id === shiftLocalId && b.ended_at === null)
+    .sort((a, b) => (a.started_at > b.started_at ? 1 : -1));
+  if (open.length === 0) return 0;
   const now = new Date().toISOString();
-  open.ended_at = now;
-  open.synced = 0;
+  for (const b of open) {
+    b.ended_at = now;
+    b.synced = 0;
+  }
   await writeBreaks(breaks);
-  return Math.max(0, Math.floor((Date.parse(now) - Date.parse(open.started_at)) / 1000));
+  return Math.max(0, Math.floor((Date.parse(now) - Date.parse(open[0].started_at)) / 1000));
 }
 
 export async function getMonthShifts(userId: string, year: number, month: number): Promise<LocalShift[]> {
