@@ -3,6 +3,15 @@
 Running log. Newest first. Each entry: **what** was decided and **why**, so future changes don't
 re-litigate settled ground.
 
+## D-018 — Workforce entities extend profiles/sites; assignments carry history
+`profiles` remains the employee record because its ID is already the Supabase Auth user ID, and
+`sites` remains the object record because shifts already reference it. Workforce fields therefore
+extend those tables instead of creating parallel employee/object identities. `default_site_id`
+stays as a compatibility field for the existing punch attribution flow, while the new
+`employee_assignments` table records dated history. Employee files are represented only by
+metadata and a private Storage path in `employee_documents`; file bytes never enter Postgres.
+New sensitive tables have RLS enabled with no client policies until the dedicated security phase.
+
 ## D-016 — The database attributes a punch to a site; the panel shows the address it read
 `site_id` used to be whatever the client sent, and the web app sent nothing — so the employer's
 list showed "—" and `out_of_zone` was always null. A `before insert` trigger now resolves it from
