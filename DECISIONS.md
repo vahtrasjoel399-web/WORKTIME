@@ -3,6 +3,23 @@
 Running log. Newest first. Each entry: **what** was decided and **why**, so future changes don't
 re-litigate settled ground.
 
+## D-020 — Employee files use one private bucket with typed path namespaces
+Profile photos and employee documents live in the private `employee-files` bucket under
+`company/{companyId}/employees/{employeeId}/photos|documents/{safeFilename}`. The bucket is capped
+at 10 MiB and accepts only JPEG/PNG/WebP, PDF and Word formats; SVG, archives and executable types
+are excluded. Storage RLS gives admins access only inside their tenant and lets a worker read only
+their own photo namespace—never CVs or documents. Database guards require profile/document metadata
+to reference a matching validated path. Consumers must use authenticated downloads or short-lived
+signed URLs, never permanent public URLs.
+
+## D-019 — Workforce access is tenant-scoped in Postgres, not inferred by the UI
+RLS remains the authorization boundary for workforce data. Admins can manage profiles, objects,
+documents and assignments only inside their own `company_id`; workers can read only their own
+profile, shifts and assignments, plus their currently assigned site. Employee documents have no
+worker policy at all. Tenant guards reject cross-company profile/site/document/assignment links,
+and trigger-only security-definer helpers are not exposed as client-callable RPCs. Storage object
+policies remain a separate Phase 3 concern.
+
 ## D-018 — Workforce entities extend profiles/sites; assignments carry history
 `profiles` remains the employee record because its ID is already the Supabase Auth user ID, and
 `sites` remains the object record because shifts already reference it. Workforce fields therefore
