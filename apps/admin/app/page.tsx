@@ -5,10 +5,9 @@ import { getProfile } from "@/lib/auth";
 import { hours1, money } from "@/lib/format";
 import { resolveEarnings } from "@/lib/report";
 import { isoWeek, parseYmd, weekRange } from "@/lib/week";
-import { distanceLabel, matchSite, shortAddress } from "@/lib/geo";
 import { AddWorker } from "@/components/AddWorker";
 import { PendingWorkers } from "@/components/PendingWorkers";
-import { DeleteWorker } from "@/components/DeleteWorker";
+import { EmployeeDirectory } from "@/components/EmployeeDirectory";
 import { Icon } from "@/components/Icon";
 import type { Profile, Site } from "@/lib/types";
 
@@ -27,7 +26,14 @@ export default async function WorkersPage() {
   toDate.setUTCDate(toDate.getUTCDate() + 1);
   const to = toDate.toISOString();
 
-  const [{ data: workers }, { data: openShifts }, { data: weekShifts }, { data: sites }, { data: company }] =
+  const [
+    { data: workers },
+    { data: openShifts },
+    { data: weekShifts },
+    { data: sites },
+    { data: assignments },
+    { data: company },
+  ] =
     await Promise.all([
       supabase.from("profiles").select("*").eq("role", "worker").order("last_name"),
       supabase
@@ -41,11 +47,14 @@ export default async function WorkersPage() {
         .gte("started_at", from)
         .lt("started_at", to),
       supabase.from("sites").select("*"),
+      supabase
+        .from("employee_assignments")
+        .select("employee_id, site_id, start_date")
+        .is("end_date", null),
       supabase.from("companies").select("name, join_code").limit(1).maybeSingle(),
     ]);
 
   const siteList = (sites ?? []) as Site[];
-  const siteById = new Map(siteList.map((s) => [s.id, s]));
   const openBy = new Map((openShifts ?? []).map((o) => [o.user_id, o]));
   const weekSeconds = new Map<string, number>();
   for (const s of weekShifts ?? []) {
@@ -68,6 +77,25 @@ export default async function WorkersPage() {
   const payroll = [...weekEarned.values()].reduce((a, b) => a + b, 0);
   const weekHours = [...weekSeconds.values()].reduce((a, b) => a + b, 0);
   const currency = list[0]?.currency ?? "EUR";
+  const photoPaths = list.flatMap((worker) => worker.profile_photo_path ? [worker.profile_photo_path] : []);
+  const photoUrls: Record<string, string> = {};
+  if (photoPaths.length > 0) {
+    const { data: signedPhotos } = await supabase.storage
+      .from("employee-files")
+      .createSignedUrls(photoPaths, 3600);
+    const signedByPath = new Map(
+      (signedPhotos ?? []).flatMap((photo) => photo.signedUrl ? [[photo.path, photo.signedUrl] as const] : []),
+    );
+    for (const worker of list) {
+      if (worker.profile_photo_path) {
+        const signedUrl = signedByPath.get(worker.profile_photo_path);
+        if (signedUrl) photoUrls[worker.id] = signedUrl;
+      }
+    }
+  }
+
+  const weekSecondsRecord = Object.fromEntries(weekSeconds);
+  const weekEarnedRecord = Object.fromEntries(weekEarned);
 
   return (
     <div className="space-y-6">
@@ -110,114 +138,17 @@ export default async function WorkersPage() {
         </div>
       )}
 
-      <div className="space-y-3 sm:hidden">
-        {list.map((w, i) => {
-          const open = openBy.get(w.id);
-          const fix = open ? matchSite(open.start_lat, open.start_lng, siteList) : null;
-          const site = open?.site_id ? siteById.get(open.site_id) ?? null : fix?.site ?? null;
-          const secs = weekSeconds.get(w.id) ?? 0;
-          const rate = w.hourly_rate ?? w.self_hourly_rate ?? null;
-          return <Link key={w.id} href={`/workers/${w.id}`} className="rise block rounded-2xl border border-border bg-surface p-4 shadow-sm transition active:scale-[.99]" style={{ animationDelay: `${i * 35}ms` }}>
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="truncate font-display text-lg font-semibold">{w.first_name} {w.last_name}</div>
-                <div className={`mt-1 inline-flex items-center gap-1.5 text-sm ${open ? "text-live" : "text-muted"}`}>
-                  <span className={`h-2 w-2 rounded-full ${open ? "animate-pulse bg-live" : "bg-border"}`} />
-                  {open ? "Vahetuses" : "Vaba"}
-                </div>
-              </div>
-              <Icon name="arrow" className="mt-1 h-5 w-5 shrink-0 text-muted" />
-            </div>
-            {open && <div className="mt-3 rounded-xl bg-bg px-3 py-2 text-sm"><span className="text-muted">Objekt</span><div className={`font-medium ${site ? "" : "text-alert"}`}>{site?.name ?? (fix?.nearest ? "Väljaspool tsooni" : "Objekt tuvastamata")}</div></div>}
-            <div className="mt-4 grid grid-cols-2 gap-3 border-t border-border pt-3">
-              <div><div className="text-xs text-muted">Tunnid sel nädalal</div><div className="tabular mt-0.5 font-semibold">{hours1(secs)} h</div></div>
-              <div className="text-right"><div className="text-xs text-muted">Teenitud</div><div className="tabular mt-0.5 font-semibold text-signal">{rate != null ? money(weekEarned.get(w.id) ?? 0, w.currency) : "—"}</div></div>
-            </div>
-          </Link>;
-        })}
-      </div>
-
-      <div className="hidden overflow-x-auto rounded-2xl border border-border bg-surface sm:block">
-        <table className="w-full text-sm">
-          <thead className="border-b border-border text-left text-muted">
-            <tr>
-              <th className="px-3 py-3 font-medium sm:px-4">Nimi</th>
-              <th className="px-3 py-3 font-medium sm:px-4">Olek</th>
-              <th className="px-3 py-3 font-medium sm:px-4">Objekt</th>
-              <th className="px-3 py-3 text-right font-medium sm:px-4">Tunnid (nädal)</th>
-              <th className="hidden px-4 py-3 text-right font-medium sm:table-cell">Tunnitasu</th>
-              <th className="px-3 py-3 text-right font-medium sm:px-4">Teenitud</th>
-              <th className="px-3 py-3 sm:px-4"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.map((w, i) => {
-              const open = openBy.get(w.id);
-              // Where is this punch? The database resolves it on insert (D-016);
-              // shifts recorded before that are matched here by the same rule.
-              const fix = open ? matchSite(open.start_lat, open.start_lng, siteList) : null;
-              const site = open?.site_id ? siteById.get(open.site_id) ?? null : fix?.site ?? null;
-              const outOfZone = open != null && site == null && fix?.nearest != null;
-              const address = shortAddress(open?.start_address ?? null);
-              const secs = weekSeconds.get(w.id) ?? 0;
-              const rate = w.hourly_rate ?? w.self_hourly_rate ?? null;
-              return (
-                <tr
-                  key={w.id}
-                  className="rise border-b border-border last:border-0 hover:bg-bg"
-                  style={{ animationDelay: `${i * 30}ms` }}
-                >
-                  <td className="px-3 py-3 sm:px-4">
-                    <Link href={`/workers/${w.id}`} className="font-medium hover:text-signal">
-                      {w.first_name} {w.last_name}
-                    </Link>
-                    {!w.is_active && <span className="ml-2 text-xs text-muted">(deaktiveeritud)</span>}
-                  </td>
-                  <td className="px-3 py-3 sm:px-4">
-                    {open ? (
-                      <span className="inline-flex items-center gap-1.5 text-signal">
-                        <span className="h-2 w-2 animate-pulse rounded-full bg-signal" /> Vahetuses
-                      </span>
-                    ) : (
-                      <span className="text-muted">Vaba</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-3 sm:px-4">
-                    {open ? (
-                      <>
-                        <div className={site ? "font-medium" : "font-medium text-alert"}>
-                          {site ? site.name : fix?.nearest ? "Väljaspool tsooni" : "Objekt tuvastamata"}
-                        </div>
-                        <div className="text-xs text-muted">
-                          {address ?? "aadress puudub"}
-                          {outOfZone && fix?.nearest && (
-                            <span className="text-alert">
-                              {" "}
-                              · {distanceLabel(fix.distance)} objektist {fix.nearest.name}
-                            </span>
-                          )}
-                        </div>
-                      </>
-                    ) : (
-                      <span className="text-muted">—</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-3 text-right tabular sm:px-4">{hours1(secs)}</td>
-                  <td className="hidden px-4 py-3 text-right text-muted sm:table-cell">
-                    {w.hourly_rate != null ? money(w.hourly_rate, w.currency) : "—"}
-                  </td>
-                  <td className="px-3 py-3 text-right tabular font-semibold text-signal sm:px-4">
-                    {rate != null ? money(weekEarned.get(w.id) ?? 0, w.currency) : "—"}
-                  </td>
-                  <td className="px-3 py-3 text-right sm:px-4">
-                    <DeleteWorker id={w.id} name={`${w.first_name} ${w.last_name}`} />
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      {list.length > 0 && (
+        <EmployeeDirectory
+          workers={list}
+          sites={siteList}
+          openShifts={openShifts ?? []}
+          assignments={assignments ?? []}
+          weekSeconds={weekSecondsRecord}
+          weekEarned={weekEarnedRecord}
+          photoUrls={photoUrls}
+        />
+      )}
     </div>
   );
 }

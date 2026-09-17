@@ -6,12 +6,11 @@ import type { Profile, Site } from "@/lib/types";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { useToast } from "./ToastProvider";
 
-export function WorkerAdmin({ worker, sites }: { worker: Profile & { default_site_id: string | null }; sites: Site[] }) {
+export function WorkerAdmin({ worker, sites }: { worker: Profile; sites: Site[] }) {
   const supabase = supabaseBrowser();
   const router = useRouter();
   const [rate, setRate] = useState(worker.hourly_rate != null ? String(worker.hourly_rate) : "");
   const [siteId, setSiteId] = useState(worker.default_site_id ?? "");
-  const [active, setActive] = useState(worker.is_active);
   const [saved, setSaved] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -24,7 +23,6 @@ export function WorkerAdmin({ worker, sites }: { worker: Profile & { default_sit
       .update({
         hourly_rate: parsed,
         default_site_id: siteId || null,
-        is_active: active,
       })
       .eq("id", worker.id);
     if (error) return toast("Salvestamine ebaõnnestus.", "error");
@@ -73,7 +71,7 @@ export function WorkerAdmin({ worker, sites }: { worker: Profile & { default_sit
       </label>
 
       <label className="block">
-        <span className="text-sm text-muted">Objekt</span>
+        <span className="text-sm text-muted">Vahetuse vaikeobjekt</span>
         <select
           value={siteId}
           onChange={(e) => setSiteId(e.target.value)}
@@ -86,11 +84,7 @@ export function WorkerAdmin({ worker, sites }: { worker: Profile & { default_sit
             </option>
           ))}
         </select>
-      </label>
-
-      <label className="flex items-center gap-2">
-        <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
-        <span className="text-sm">Aktiivne konto</span>
+        <span className="mt-1 block text-xs text-muted">Kasutatakse vahetuse objekti tuvastamise fallback-ina.</span>
       </label>
 
       <button onClick={save} className="w-full rounded-lg bg-text py-2 font-semibold text-bg">

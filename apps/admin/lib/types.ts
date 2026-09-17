@@ -3,7 +3,11 @@ export interface Profile {
   company_id: string;
   first_name: string;
   last_name: string;
+  email: string | null;
   phone: string | null;
+  position: string | null;
+  profile_photo_path: string | null;
+  default_site_id: string | null;
   role: "worker" | "admin";
   is_active: boolean;
   is_approved: boolean;
@@ -13,6 +17,8 @@ export interface Profile {
   currency: string;
   target_shift_hours: number;
   show_earnings: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Site {
@@ -20,9 +26,37 @@ export interface Site {
   company_id: string;
   name: string;
   address: string | null;
+  description: string | null;
+  status: "active" | "inactive";
   lat: number | null;
   lng: number | null;
   radius_m: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EmployeeAssignment {
+  id: string;
+  company_id: string;
+  employee_id: string;
+  site_id: string;
+  start_date: string;
+  end_date: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface EmployeeDocument {
+  id: string;
+  company_id: string;
+  employee_id: string;
+  filename: string;
+  storage_path: string;
+  document_type: string;
+  mime_type: string | null;
+  size_bytes: number | null;
+  uploaded_by: string | null;
+  created_at: string;
 }
 
 export interface ShiftReport {

@@ -1,14 +1,17 @@
 import { Fragment } from "react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase-server";
+import { getProfile } from "@/lib/auth";
 import { hours1, hm, dmy, money, monthRange } from "@/lib/format";
 import { WorkerAdmin } from "@/components/WorkerAdmin";
+import { EmployeeProfileEditor } from "@/components/EmployeeProfileEditor";
+import { EmployeeDocuments } from "@/components/EmployeeDocuments";
 import { EditShift } from "@/components/EditShift";
 import { AddShift } from "@/components/AddShift";
 import { MapView } from "@/components/MapView";
 import { resolveEarnings } from "@/lib/report";
-import type { ShiftReport } from "@/lib/types";
+import type { EmployeeAssignment, EmployeeDocument, Profile, ShiftReport, Site } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -20,17 +23,64 @@ export default async function WorkerCard({
   searchParams: Promise<{ y?: string; m?: string }>;
 }) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
+  const me = await getProfile();
+  if (!me) redirect("/login");
+  if (me.role !== "admin") redirect("/me");
+
   const supabase = await supabaseServer();
   const now = new Date();
   const year = query.y ? parseInt(query.y) : now.getFullYear();
   const month = query.m ? parseInt(query.m) : now.getMonth();
   const { from, to } = monthRange(year, month);
 
-  const [{ data: worker }, { data: sites }] = await Promise.all([
-    supabase.from("profiles").select("*").eq("id", id).single(),
+  const [
+    { data: workerRaw },
+    { data: sitesRaw },
+    { data: assignmentsRaw },
+    { data: documentsRaw },
+  ] = await Promise.all([
+    supabase.from("profiles").select("*").eq("id", id).eq("role", "worker").single(),
     supabase.from("sites").select("*"),
+    supabase
+      .from("employee_assignments")
+      .select("*")
+      .eq("employee_id", id)
+      .order("start_date", { ascending: false }),
+    supabase
+      .from("employee_documents")
+      .select("*")
+      .eq("employee_id", id)
+      .order("created_at", { ascending: false }),
   ]);
-  if (!worker) notFound();
+  if (!workerRaw) notFound();
+  const worker = workerRaw as Profile;
+  const sites = (sitesRaw ?? []) as Site[];
+  const assignments = (assignmentsRaw ?? []) as EmployeeAssignment[];
+  const documents = (documentsRaw ?? []) as EmployeeDocument[];
+
+  const filePaths = [
+    ...(worker.profile_photo_path ? [worker.profile_photo_path] : []),
+    ...documents.map((document) => document.storage_path),
+  ];
+  const signedByPath = new Map<string, string>();
+  if (filePaths.length > 0) {
+    const { data: signedFiles } = await supabase.storage
+      .from("employee-files")
+      .createSignedUrls(filePaths, 3600);
+    for (const signedFile of signedFiles ?? []) {
+      if (signedFile.path && signedFile.signedUrl) signedByPath.set(signedFile.path, signedFile.signedUrl);
+    }
+  }
+  const photoUrl = worker.profile_photo_path ? signedByPath.get(worker.profile_photo_path) ?? null : null;
+  const documentsWithUrls = documents.map((document) => ({
+    ...document,
+    signed_url: signedByPath.get(document.storage_path) ?? null,
+  }));
+
+  const siteById = new Map(sites.map((site) => [site.id, site]));
+  const currentAssignment = assignments.find((assignment) => assignment.end_date == null) ?? null;
+  const currentSiteId = currentAssignment?.site_id ?? worker.default_site_id ?? null;
+  const currentSite = currentSiteId ? siteById.get(currentSiteId) ?? null : null;
 
   const { data: shiftsRaw } = await supabase
     .from("v_shift_report")
@@ -91,14 +141,24 @@ export default async function WorkerCard({
         ← Töötajad
       </Link>
 
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex min-w-0 items-center gap-4">
+          {photoUrl ? (
+            <img src={photoUrl} alt={`${worker.first_name} ${worker.last_name}`} className="h-20 w-20 shrink-0 rounded-2xl border border-border object-cover" />
+          ) : (
+            <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl border border-border bg-surface font-display text-xl font-bold text-muted">
+              {`${worker.first_name.charAt(0)}${worker.last_name.charAt(0)}`.toUpperCase() || "?"}
+            </span>
+          )}
+          <div className="min-w-0">
           <h1 className="font-display text-3xl font-bold">
             {worker.first_name} {worker.last_name}
           </h1>
           <p className="mt-1 text-sm text-muted">
-            {worker.phone ?? "—"} · {worker.role} · {worker.is_active ? "aktiivne" : "deaktiveeritud"}
+            {worker.position ?? "amet määramata"} · {worker.is_active ? "aktiivne" : "deaktiveeritud"}
           </p>
+          <p className="mt-1 truncate text-sm text-muted">{worker.email ?? "e-post puudub"} · {worker.phone ?? "telefon puudub"}</p>
+          </div>
         </div>
         <div className="text-right">
           <div className="tabular text-3xl font-semibold">{hours1(totalSeconds)} h</div>
@@ -235,7 +295,39 @@ export default async function WorkerCard({
 
         {/* right: admin */}
         <div className="space-y-6">
-          <WorkerAdmin worker={worker} sites={sites ?? []} />
+          <EmployeeProfileEditor worker={worker} photoUrl={photoUrl} />
+
+          <section className="space-y-4 rounded-2xl border border-border bg-surface p-5">
+            <div>
+              <h3 className="font-display text-lg font-semibold">Tööinfo</h3>
+              <p className="mt-1 text-sm text-muted">Praegune objekt ja määramiste ajalugu</p>
+            </div>
+            <div className="rounded-xl bg-bg p-3">
+              <div className="text-xs text-muted">Praegune objekt</div>
+              <div className="mt-1 font-medium">{currentSite?.name ?? "Määramata"}</div>
+              {currentSite?.address && <div className="mt-0.5 text-xs text-muted">{currentSite.address}</div>}
+            </div>
+            <div className="space-y-2">
+              {assignments.length === 0 && <p className="text-sm text-muted">Määramiste ajalugu puudub.</p>}
+              {assignments.map((assignment) => {
+                const site = siteById.get(assignment.site_id);
+                return (
+                  <div key={assignment.id} className="flex items-start justify-between gap-3 border-l-2 border-border pl-3 text-sm">
+                    <div>
+                      <div className="font-medium">{site?.name ?? "Tundmatu objekt"}</div>
+                      <div className="text-xs text-muted">
+                        {new Date(`${assignment.start_date}T00:00:00`).toLocaleDateString("et-EE")} → {assignment.end_date ? new Date(`${assignment.end_date}T00:00:00`).toLocaleDateString("et-EE") : "praeguseni"}
+                      </div>
+                    </div>
+                    {!assignment.end_date && <span className="rounded-full bg-live/10 px-2 py-0.5 text-[10px] text-live">Praegune</span>}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          <EmployeeDocuments worker={worker} actorId={me.id} documents={documentsWithUrls} />
+          <WorkerAdmin worker={worker} sites={sites} />
         </div>
       </div>
     </div>
