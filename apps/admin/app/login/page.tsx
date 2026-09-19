@@ -9,7 +9,6 @@ type Mode = "signin" | "worker" | "company";
 
 export default function Login() {
   const router = useRouter();
-  const supabase = supabaseBrowser();
   const { t } = useI18n();
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
@@ -44,6 +43,7 @@ export default function Login() {
   }
 
   async function routeByRole() {
+    const supabase = supabaseBrowser();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const { data: p } = await supabase.from("profiles").select("role").eq("id", user.id).single();
@@ -55,6 +55,7 @@ export default function Login() {
     e.preventDefault(); setBusy(true); setError(null);
     const cleanEmail = checkedEmail();
     if (!cleanEmail) { setBusy(false); return; }
+    const supabase = supabaseBrowser();
     const { error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
     if (error) { setBusy(false); return showError(t("errWrongCreds")); }
     await routeByRole(); setBusy(false);
@@ -64,6 +65,7 @@ export default function Login() {
     e.preventDefault(); setBusy(true); setError(null);
     const cleanEmail = checkedEmail();
     if (!cleanEmail) { setBusy(false); return; }
+    const supabase = supabaseBrowser();
     const redirectTo = `${window.location.origin}/auth/callback`;
     const { data: su, error: se } = await supabase.auth.signUp({
       email: cleanEmail, password,
@@ -80,6 +82,7 @@ export default function Login() {
     e.preventDefault(); setBusy(true); setError(null);
     const cleanEmail = checkedEmail();
     if (!cleanEmail) { setBusy(false); return; }
+    const supabase = supabaseBrowser();
     const redirectTo = `${window.location.origin}/auth/callback`;
     const { data: su, error: se } = await supabase.auth.signUp({
       email: cleanEmail, password,
@@ -98,6 +101,7 @@ export default function Login() {
     if (!email.trim()) return showError(t("enterEmailFirst"));
     const clean = checkedEmail();
     if (!clean) return;
+    const supabase = supabaseBrowser();
     const { error } = await supabase.auth.resetPasswordForEmail(clean, {
       redirectTo: `${window.location.origin}/auth/callback?next=/set-password`,
     });
