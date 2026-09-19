@@ -9,8 +9,12 @@
   "scripts": {
     "mobile": "npm run start --workspace apps/mobile",
     "admin": "npm run dev --workspace apps/admin",
+    "build": "npm run build --prefix apps/admin",
     "db:push": "supabase db push",
     "db:reset": "supabase db reset"
+  },
+  "dependencies": {
+    "next": "16.3.3"
   },
   "engines": {
     "node": ">=20"
