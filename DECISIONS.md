@@ -3,6 +3,13 @@
 Running log. Newest first. Each entry: **what** was decided and **why**, so future changes don't
 re-litigate settled ground.
 
+## D-022 — Workers see only their own profile and assignment-linked sites
+The mobile profile screen reads the signed-in worker's own `profiles` row, private profile photo,
+own `employee_assignments`, and only the `sites` referenced by those assignments. Site RLS includes
+historical assignments so the history has meaningful names, but it does not expose other workers,
+employee documents or unrelated company sites. Existing shift, GPS and offline-sync flows remain
+unchanged.
+
 ## D-021 — Object changes are one database transaction; assignment history is append-only
 Admins assign, move or remove a worker through the tenant-checked `set_employee_assignment` RPC.
 The function locks the employee, closes the current assignment instead of deleting it, creates the

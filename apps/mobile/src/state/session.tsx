@@ -11,6 +11,11 @@ const DEMO_PROFILE: Profile = {
   company_id: "demo-company",
   first_name: "Demo",
   last_name: "",
+  email: "demo@example.com",
+  phone: null,
+  position: "Worker",
+  profile_photo_path: null,
+  default_site_id: null,
   role: "worker",
   is_active: true,
   is_approved: true,
@@ -28,6 +33,11 @@ export interface Profile {
   company_id: string;
   first_name: string;
   last_name: string;
+  email: string | null;
+  phone: string | null;
+  position: string | null;
+  profile_photo_path: string | null;
+  default_site_id: string | null;
   role: "worker" | "admin";
   is_active: boolean;
   is_approved: boolean;
