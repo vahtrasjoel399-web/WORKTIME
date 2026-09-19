@@ -124,7 +124,7 @@ export default async function WorkersPage() {
           >
             Nädala aruanne →
           </Link>
-          <AddWorker />
+          <AddWorker sites={siteList} companyId={me.company_id} actorId={me.id} />
         </div>
       </div>
 

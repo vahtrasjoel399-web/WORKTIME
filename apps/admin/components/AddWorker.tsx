@@ -2,23 +2,96 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { emailSuggestion, isValidEmail } from "@/lib/email";
+import { employeeFileError, employeeStoragePath } from "@/lib/employee-files";
+import { supabaseBrowser } from "@/lib/supabase-browser";
+import type { Site } from "@/lib/types";
 
-const empty = { first_name: "", last_name: "", email: "", phone: "", hourly_rate: "" };
+const empty = {
+  first_name: "",
+  last_name: "",
+  email: "",
+  phone: "",
+  position: "",
+  initial_site_id: "",
+  hourly_rate: "",
+};
 
-export function AddWorker() {
+const CV_MIME_TYPES = new Set([
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+]);
+
+export function AddWorker({ sites, companyId, actorId }: { sites: Site[]; companyId: string; actorId: string }) {
   const router = useRouter();
+  const supabase = supabaseBrowser();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(empty);
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [cv, setCv] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  const [createdId, setCreatedId] = useState<string | null>(null);
+  const [uploadWarning, setUploadWarning] = useState<string | null>(null);
+
+  async function uploadPhoto(employeeId: string, file: File): Promise<boolean> {
+    const path = employeeStoragePath(companyId, employeeId, "photos", file);
+    const { error: uploadError } = await supabase.storage
+      .from("employee-files")
+      .upload(path, file, { contentType: file.type, upsert: false });
+    if (uploadError) return false;
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .update({ profile_photo_path: path })
+      .eq("id", employeeId);
+    if (profileError) {
+      await supabase.storage.from("employee-files").remove([path]);
+      return false;
+    }
+    return true;
+  }
+
+  async function uploadCv(employeeId: string, file: File): Promise<boolean> {
+    const path = employeeStoragePath(companyId, employeeId, "documents", file);
+    const { error: uploadError } = await supabase.storage
+      .from("employee-files")
+      .upload(path, file, { contentType: file.type, upsert: false });
+    if (uploadError) return false;
+    const { error: metadataError } = await supabase.from("employee_documents").insert({
+      company_id: companyId,
+      employee_id: employeeId,
+      filename: file.name.slice(0, 255),
+      storage_path: path,
+      document_type: "cv",
+      mime_type: file.type,
+      size_bytes: file.size,
+      uploaded_by: actorId,
+    });
+    if (metadataError) {
+      await supabase.storage.from("employee-files").remove([path]);
+      return false;
+    }
+    return true;
+  }
 
   async function submit() {
-    setBusy(true);
     setError(null);
+    if (!form.first_name.trim() || !form.last_name.trim()) return setError("Ees- ja perekonnanimi on kohustuslikud.");
     const suggestion = emailSuggestion(form.email);
-    if (suggestion) { setBusy(false); return setError(`Kontrolli e-posti. Kas mõtlesid ${suggestion}?`); }
-    if (!isValidEmail(form.email)) { setBusy(false); return setError("Kontrolli e-posti aadressi."); }
+    if (suggestion) return setError(`Kontrolli e-posti. Kas mõtlesid ${suggestion}?`);
+    if (!isValidEmail(form.email)) return setError("Kontrolli e-posti aadressi.");
+    if (photo) {
+      const photoError = employeeFileError(photo, "photos");
+      if (photoError) return setError(photoError);
+    }
+    if (cv) {
+      const cvError = employeeFileError(cv, "documents");
+      if (cvError) return setError(cvError);
+      if (!CV_MIME_TYPES.has(cv.type)) return setError("CV peab olema PDF- või Word-fail.");
+    }
+
+    setBusy(true);
     const res = await fetch("/api/workers", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -27,9 +100,21 @@ export function AddWorker() {
         hourly_rate: form.hourly_rate ? parseFloat(form.hourly_rate.replace(",", ".")) : null,
       }),
     });
+    if (!res.ok) {
+      setBusy(false);
+      return setError(await res.text());
+    }
+    const created = (await res.json()) as { id: string };
+    const failedUploads: string[] = [];
+    if (photo && !(await uploadPhoto(created.id, photo))) failedUploads.push("profiilifoto");
+    if (cv && !(await uploadCv(created.id, cv))) failedUploads.push("CV");
+
     setBusy(false);
-    if (!res.ok) return setError(await res.text());
     setForm(empty);
+    setPhoto(null);
+    setCv(null);
+    setCreatedId(created.id);
+    setUploadWarning(failedUploads.length > 0 ? `${failedUploads.join(" ja ")} üleslaadimine ebaõnnestus. Lisa fail töötaja profiilil.` : null);
     setSent(true);
     router.refresh();
   }
@@ -45,12 +130,16 @@ export function AddWorker() {
 
   return (
     <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 p-4" onClick={() => setOpen(false)}>
-      <div className="w-full max-w-md space-y-3 rounded-2xl border border-border bg-surface p-6" onClick={(e) => e.stopPropagation()}>
+      <div className="max-h-[calc(100dvh-2rem)] w-full max-w-lg space-y-3 overflow-y-auto rounded-2xl border border-border bg-surface p-6" onClick={(e) => e.stopPropagation()}>
         <h3 className="font-display text-lg font-semibold">{sent ? "Kutse saadetud" : "Lisa töötaja"}</h3>
         {sent ? (
           <>
             <p className="text-sm text-muted">Töötaja sai turvalise e-posti kutse, mille kaudu ta määrab ise parooli.</p>
-            <button onClick={() => { setOpen(false); setSent(false); }} className="w-full rounded-lg bg-text py-2 font-semibold text-bg">Valmis</button>
+            {uploadWarning && <p className="rounded-lg border border-alert/30 bg-alert/10 px-3 py-2 text-sm text-alert">{uploadWarning}</p>}
+            <div className="grid grid-cols-2 gap-2">
+              {createdId && <button onClick={() => router.push(`/workers/${createdId}`)} className="rounded-lg border border-border py-2 font-semibold">Ava profiil</button>}
+              <button onClick={() => { setOpen(false); setSent(false); setCreatedId(null); setUploadWarning(null); }} className="rounded-lg bg-text py-2 font-semibold text-bg">Valmis</button>
+            </div>
           </>
         ) : (<>
         <div className="flex gap-2">
@@ -59,7 +148,25 @@ export function AddWorker() {
         </div>
         <input className={input} placeholder="E-post" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
         <input className={input} placeholder="Telefon (valikuline)" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+        <input className={input} placeholder="Ametikoht (valikuline)" value={form.position} onChange={(e) => setForm({ ...form, position: e.target.value })} />
+        <select className={input} value={form.initial_site_id} onChange={(e) => setForm({ ...form, initial_site_id: e.target.value })}>
+          <option value="">Esialgne objekt (valikuline)</option>
+          {sites.filter((site) => site.status === "active").map((site) => <option key={site.id} value={site.id}>{site.name}</option>)}
+        </select>
         <input className={input} inputMode="decimal" placeholder="Tunnitasu (valikuline)" value={form.hourly_rate} onChange={(e) => setForm({ ...form, hourly_rate: e.target.value })} />
+        <div className="grid gap-2 sm:grid-cols-2">
+          <label className="cursor-pointer rounded-lg border border-border bg-bg px-3 py-2 text-sm hover:border-signal">
+            <span className="block text-xs text-muted">Profiilifoto</span>
+            <span className="block truncate font-medium">{photo?.name ?? "Vali JPG, PNG või WebP"}</span>
+            <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} />
+          </label>
+          <label className="cursor-pointer rounded-lg border border-border bg-bg px-3 py-2 text-sm hover:border-signal">
+            <span className="block text-xs text-muted">CV</span>
+            <span className="block truncate font-medium">{cv?.name ?? "Vali PDF või Word"}</span>
+            <input type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" className="sr-only" onChange={(e) => setCv(e.target.files?.[0] ?? null)} />
+          </label>
+        </div>
+        <p className="text-xs text-muted">Faili maksimaalne suurus on 10 MB.</p>
         {error && <p className="text-sm text-alert">{error}</p>}
         <div className="flex gap-2 pt-1">
           <button onClick={submit} disabled={busy} className="flex-1 rounded-lg bg-text py-2 font-semibold text-bg disabled:opacity-60">
