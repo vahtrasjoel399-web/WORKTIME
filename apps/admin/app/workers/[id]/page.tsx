@@ -7,6 +7,7 @@ import { hours1, hm, dmy, money, monthRange } from "@/lib/format";
 import { WorkerAdmin } from "@/components/WorkerAdmin";
 import { EmployeeProfileEditor } from "@/components/EmployeeProfileEditor";
 import { EmployeeDocuments } from "@/components/EmployeeDocuments";
+import { EmployeeAssignmentManager } from "@/components/EmployeeAssignmentManager";
 import { EditShift } from "@/components/EditShift";
 import { AddShift } from "@/components/AddShift";
 import { MapView } from "@/components/MapView";
@@ -307,6 +308,7 @@ export default async function WorkerCard({
               <div className="mt-1 font-medium">{currentSite?.name ?? "Määramata"}</div>
               {currentSite?.address && <div className="mt-0.5 text-xs text-muted">{currentSite.address}</div>}
             </div>
+            <EmployeeAssignmentManager employeeId={worker.id} currentAssignment={currentAssignment} sites={sites} />
             <div className="space-y-2">
               {assignments.length === 0 && <p className="text-sm text-muted">Määramiste ajalugu puudub.</p>}
               {assignments.map((assignment) => {
@@ -327,7 +329,7 @@ export default async function WorkerCard({
           </section>
 
           <EmployeeDocuments worker={worker} actorId={me.id} documents={documentsWithUrls} />
-          <WorkerAdmin worker={worker} sites={sites} />
+          <WorkerAdmin worker={worker} />
         </div>
       </div>
     </div>

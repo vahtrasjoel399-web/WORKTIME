@@ -3,6 +3,13 @@
 Running log. Newest first. Each entry: **what** was decided and **why**, so future changes don't
 re-litigate settled ground.
 
+## D-021 — Object changes are one database transaction; assignment history is append-only
+Admins assign, move or remove a worker through the tenant-checked `set_employee_assignment` RPC.
+The function locks the employee, closes the current assignment instead of deleting it, creates the
+new current row when needed, and synchronizes `profiles.default_site_id` for the legacy shift-site
+fallback. Keeping this in Postgres prevents partial moves and concurrent current assignments; the
+UI never edits `default_site_id` directly.
+
 ## D-020 — Employee files use one private bucket with typed path namespaces
 Profile photos and employee documents live in the private `employee-files` bucket under
 `company/{companyId}/employees/{employeeId}/photos|documents/{safeFilename}`. The bucket is capped
