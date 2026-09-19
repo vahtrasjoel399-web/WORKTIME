@@ -49,6 +49,10 @@ export const dict: Dict = {
   passwordTooShort: { et: "Parool peab olema vähemalt 10 tähemärki.", ru: "Пароль должен содержать минимум 10 символов.", en: "Password must contain at least 10 characters." },
   passwordMismatch: { et: "Paroolid ei ühti.", ru: "Пароли не совпадают.", en: "Passwords do not match." },
   passwordUpdateFailed: { et: "Parooli salvestamine ebaõnnestus.", ru: "Не удалось сохранить пароль.", en: "Could not save the password." },
+  passwordSaved: { et: "Parool on salvestatud", ru: "Пароль сохранён", en: "Password saved" },
+  workerReady: { et: "Sinu töötaja konto on valmis. Ava Tööaeg mobiilirakendus.", ru: "Ваш аккаунт работника готов. Откройте мобильное приложение Tööaeg.", en: "Your worker account is ready. Open the Tööaeg mobile app." },
+  openMobileApp: { et: "Ava mobiilirakendus", ru: "Открыть мобильное приложение", en: "Open mobile app" },
+  mobileLoginHint: { et: "Logi sisse sama e-posti ja äsja loodud parooliga.", ru: "Войдите с той же почтой и только что созданным паролем.", en: "Sign in with the same email and the password you just created." },
 
   companyCreated: { et: "Ettevõte loodud 🎉", ru: "Компания создана 🎉", en: "Company created 🎉" },
   shareCode: { et: "Jaga seda koodi töötajatega — nad sisestavad selle registreerumisel.", ru: "Дайте этот код работникам — они введут его при регистрации.", en: "Share this code with workers — they enter it when registering." },

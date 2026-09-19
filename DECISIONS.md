@@ -3,6 +3,12 @@
 Running log. Newest first. Each entry: **what** was decided and **why**, so future changes don't
 re-litigate settled ground.
 
+## D-023 — Worker invitations terminate in a server-verified password setup flow
+Admins invite workers through Supabase Auth; WORKTIME never creates, stores or displays a worker
+password. Invite emails carry a one-time token hash to `/auth/confirm`, where it is verified into
+the existing secure-cookie session before the worker sets a password. The completion screen opens
+the mobile app, while the existing code callback remains available for signup and recovery flows.
+
 ## D-022 — Workers see only their own profile and assignment-linked sites
 The mobile profile screen reads the signed-in worker's own `profiles` row, private profile photo,
 own `employee_assignments`, and only the `sites` referenced by those assignments. Site RLS includes

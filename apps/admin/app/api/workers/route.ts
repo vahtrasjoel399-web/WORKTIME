@@ -64,7 +64,8 @@ export async function POST(req: NextRequest) {
   }
 
   const service = supabaseService();
-  const redirectTo = `${process.env.NEXT_PUBLIC_SITE_URL ?? req.nextUrl.origin}/auth/callback?next=/set-password`;
+  const siteOrigin = (process.env.NEXT_PUBLIC_SITE_URL ?? req.nextUrl.origin).replace(/\/$/, "");
+  const redirectTo = `${siteOrigin}/auth/confirm`;
   const { data: created, error: createErr } = await service.auth.admin.inviteUserByEmail(cleanEmail, {
     redirectTo,
     data: { first_name: cleanFirst, last_name: cleanLast, invited_by: user.id },

@@ -30,7 +30,8 @@ export async function proxy(req: NextRequest) {
 
   const isLogin = req.nextUrl.pathname.startsWith("/login");
   const isAuthCallback = req.nextUrl.pathname.startsWith("/auth/callback");
-  if (!user && !isLogin && !isAuthCallback) {
+  const isAuthConfirm = req.nextUrl.pathname.startsWith("/auth/confirm");
+  if (!user && !isLogin && !isAuthCallback && !isAuthConfirm) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
   if (user && isLogin) {

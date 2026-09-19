@@ -12,6 +12,7 @@ export default function SetPasswordPage() {
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [complete, setComplete] = useState(false);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -19,14 +20,43 @@ export default function SetPasswordPage() {
     if (password.length < 10) return setError(t("passwordTooShort"));
     if (password !== confirm) return setError(t("passwordMismatch"));
     setBusy(true);
-    const { error: updateError } = await supabaseBrowser().auth.updateUser({ password });
+    const supabase = supabaseBrowser();
+    const { error: updateError } = await supabase.auth.updateUser({ password });
     setBusy(false);
     if (updateError) return setError(t("passwordUpdateFailed"));
-    router.replace("/");
-    router.refresh();
+
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: profile } = user
+      ? await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle()
+      : { data: null };
+    if (profile?.role === "admin") {
+      router.replace("/");
+      router.refresh();
+      return;
+    }
+    setComplete(true);
   }
 
   const input = "w-full rounded-lg border border-border bg-bg px-4 py-3 outline-none focus:border-signal";
+  if (complete) {
+    return (
+      <div className="flex min-h-[80dvh] items-center justify-center px-0 sm:px-4">
+        <div className="auth-card w-full max-w-sm space-y-5 rounded-2xl border border-border bg-surface p-5 text-center shadow-xl shadow-black/5 sm:p-8">
+          <LangSwitcher />
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-live/10 text-2xl text-live">✓</div>
+          <div>
+            <h1 className="font-display text-2xl font-bold">{t("passwordSaved")}</h1>
+            <p className="mt-2 text-sm text-muted">{t("workerReady")}</p>
+          </div>
+          <a href="tooaeg:///" className="block w-full rounded-lg bg-signal py-3 font-semibold text-[#0B1320]">
+            {t("openMobileApp")}
+          </a>
+          <p className="text-xs text-muted">{t("mobileLoginHint")}</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-[80dvh] items-center justify-center px-0 sm:px-4">
       <form onSubmit={submit} className="auth-card w-full max-w-sm space-y-5 rounded-2xl border border-border bg-surface p-5 shadow-xl shadow-black/5 sm:p-8">

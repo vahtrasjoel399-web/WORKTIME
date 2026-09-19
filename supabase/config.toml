@@ -18,6 +18,10 @@ site_url = "http://localhost:3000"
 enable_signup = true
 enable_confirmations = false   # set true in production once you configure an email sender
 
+[auth.email.template.invite]
+subject = "Welcome to Tööaeg — create your password"
+content_path = "./supabase/templates/invite.html"
+
 [auth.sms]
 enable_signup = false          # phone OTP: enable + configure a provider in the dashboard
 

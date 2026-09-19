@@ -67,10 +67,13 @@ DECISIONS.md     Running log of technical decisions
    - **Email** (email + password) — used for invited workers and admins.
    - **Phone** (SMS OTP) — requires an SMS provider (Twilio/MessageBird). Configure under
      Authentication → Providers → Phone. Phone login is optional; email works out of the box.
-4. **Production email.** Keep email sign-up enabled for company-code registration, configure a
-   custom SMTP sender, enable email confirmation, set the production Site URL, and allow
-   `<production-origin>/auth/callback` as an Auth redirect URL. Worker invitations and password
-   recovery use this callback. Unknown users cannot join a company without its join code.
+4. **Production email and invitations.** Keep email sign-up enabled for company-code registration,
+   configure a custom SMTP sender, enable email confirmation, and set the production Site URL.
+   In Auth → URL Configuration, allow both `<production-origin>/auth/confirm` and
+   `<production-origin>/auth/callback`. In Auth → Email Templates → Invite user, paste the contents
+   of [`supabase/templates/invite.html`](supabase/templates/invite.html). Invitations use the
+   one-time `token_hash` route; password recovery continues to use the callback route. Unknown
+   users cannot join a company without its join code.
 5. Deploy Edge Functions:
 
    ```bash
