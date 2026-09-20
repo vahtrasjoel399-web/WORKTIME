@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;900&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -7,31 +7,106 @@
 /* Light / dark token pairs — spec §4. Accents in light are the darker variants
    for >=4.5:1 contrast on white. */
 :root {
-  --bg: #edf1f5;
+  --bg: #f4f6f8;
   --surface: #ffffff;
-  --text: #0b1320;
-  --text-muted: #5a6b7c;
-  --border: #d3dbe3;
-  --signal: #e09000;
-  --live: #1fa35c;
-  --alert: #c8433a;
+  --elevated: #ffffff;
+  --text: #172033;
+  --text-muted: #647084;
+  --border: #dfe3e8;
+  --border-strong: #c6ccd4;
+  --primary: #1d4ed8;
+  --primary-hover: #1e40af;
+  --primary-foreground: #ffffff;
+  --signal: #b65f00;
+  --live: #137a45;
+  --alert: #b42318;
+  color-scheme: light;
 }
 
 .dark {
-  --bg: #0b1320;
-  --surface: #141d2b;
-  --text: #edf1f5;
-  --text-muted: #8296a8;
-  --border: #22303f;
-  --signal: #ffb020;
-  --live: #2fbf71;
-  --alert: #e2574c;
+  --bg: #0d1117;
+  --surface: #151b23;
+  --elevated: #1b2330;
+  --text: #f0f3f6;
+  --text-muted: #9aa7b5;
+  --border: #2d3744;
+  --border-strong: #435063;
+  --primary: #5b8def;
+  --primary-hover: #79a3f4;
+  --primary-foreground: #081224;
+  --signal: #f3a847;
+  --live: #48c78e;
+  --alert: #ff7b72;
+  color-scheme: dark;
 }
 
 html,
 body {
   background: var(--bg);
   color: var(--text);
+}
+
+body {
+  min-width: 320px;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--primary) 22%, transparent);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  :where(button, a, input, select, textarea, summary):focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  :where(button, select, summary, input[type="checkbox"], input[type="file"], label[for]) {
+    cursor: pointer;
+  }
+
+  :where(button, input, select, textarea):disabled {
+    cursor: not-allowed;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: color-mix(in srgb, var(--text-muted) 72%, transparent);
+  }
+}
+
+@layer components {
+  .page-stack { @apply space-y-6; }
+  .page-title { @apply font-display text-2xl font-semibold tracking-tight sm:text-3xl; }
+  .page-description { @apply mt-1 max-w-3xl text-sm leading-6 text-muted; }
+  .panel { @apply rounded-xl border border-border bg-surface; }
+  .panel-pad { @apply panel p-4 sm:p-5; }
+  .section-title { @apply font-display text-base font-semibold tracking-tight; }
+  .control {
+    @apply min-h-10 w-full rounded-lg border border-border-strong bg-surface px-3 py-2 text-sm text-text transition-colors;
+  }
+  .control:hover { @apply border-muted; }
+  .control:focus { @apply border-primary; }
+  .control:disabled { @apply bg-bg text-muted opacity-70; }
+  .btn {
+    @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-semibold transition-colors disabled:opacity-50;
+  }
+  .btn-primary { @apply btn bg-primary text-primary-foreground hover:bg-primary-hover; }
+  .btn-secondary { @apply btn border border-border-strong bg-surface text-text hover:bg-bg; }
+  .btn-quiet { @apply btn text-muted hover:bg-bg hover:text-text; }
+  .btn-danger { @apply btn border border-alert bg-surface text-alert hover:bg-bg; }
+  .status-badge { @apply inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium; }
+  .data-table { @apply w-full text-sm; }
+  .data-table thead { @apply border-b border-border bg-bg text-left text-xs font-semibold uppercase tracking-wide text-muted; }
+  .data-table th { @apply whitespace-nowrap px-4 py-3; }
+  .data-table td { @apply px-4 py-3 align-middle; }
+  .data-table tbody tr { @apply border-b border-border transition-colors last:border-0 hover:bg-bg; }
+  .field-label { @apply mb-1.5 block text-sm font-medium text-text; }
+  .field-hint { @apply mt-1.5 text-xs leading-5 text-muted; }
+  .eyebrow { @apply text-xs font-semibold uppercase tracking-[0.08em] text-muted; }
 }
 
 /* tabular figures everywhere numbers live */
@@ -51,9 +126,7 @@ body {
     transform: translateY(0);
   }
 }
-.rise {
-  animation: riseIn 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
+.rise { animation: riseIn 0.22s cubic-bezier(0.22, 1, 0.36, 1) both; }
 
 @keyframes errorShake {
   0%, 100% { transform: translateX(0); }

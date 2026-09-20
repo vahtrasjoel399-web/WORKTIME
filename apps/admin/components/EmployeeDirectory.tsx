@@ -8,6 +8,7 @@ import { distanceLabel, matchSite, shortAddress } from "@/lib/geo";
 import { hours1, money } from "@/lib/format";
 import type { Profile, Site } from "@/lib/types";
 import { pricingUnit, PRICING_LABELS } from "@/lib/pricing";
+import { EmptyState, StatusBadge } from "./ui";
 
 type OpenShift = {
   user_id: string;
@@ -95,16 +96,16 @@ export function EmployeeDirectory({ workers, sites, openShifts, assignments, wee
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-3 sm:flex-row sm:items-center sm:p-4">
+      <div className="panel flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:p-4">
         <label className="relative flex-1">
           <span className="sr-only">Otsi töötajat</span>
-          <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-muted">⌕</span>
+          <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-muted"><Icon name="search" className="h-4 w-4" /></span>
           <input
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Otsi nime, ameti, telefoni, e-posti või objekti järgi"
-            className="w-full rounded-xl border border-border bg-bg py-2.5 pl-9 pr-3 outline-none transition focus:border-signal"
+            className="control bg-bg pl-9"
           />
         </label>
         <label className="flex items-center gap-2 sm:w-52">
@@ -112,7 +113,7 @@ export function EmployeeDirectory({ workers, sites, openShifts, assignments, wee
           <select
             value={status}
             onChange={(event) => setStatus(event.target.value as StatusFilter)}
-            className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 outline-none focus:border-signal"
+            className="control bg-bg"
           >
             <option value="all">Kõik</option>
             <option value="active">Aktiivsed</option>
@@ -125,11 +126,7 @@ export function EmployeeDirectory({ workers, sites, openShifts, assignments, wee
       </div>
 
       {filtered.length === 0 && (
-        <div className="rounded-2xl border border-dashed border-border bg-surface px-6 py-10 text-center">
-          <Icon name="empty" className="mx-auto mb-3 h-9 w-9 text-muted" />
-          <h2 className="font-display text-lg font-semibold">Töötajaid ei leitud</h2>
-          <p className="mt-1 text-sm text-muted">Muuda otsingut või staatuse filtrit.</p>
-        </div>
+        <EmptyState title="Töötajaid ei leitud" description="Muuda otsingut või staatuse filtrit." />
       )}
 
       <div className="space-y-3 sm:hidden">
@@ -144,7 +141,7 @@ export function EmployeeDirectory({ workers, sites, openShifts, assignments, wee
             <Link
               key={worker.id}
               href={`/workers/${worker.id}`}
-              className="rise block rounded-2xl border border-border bg-surface p-4 shadow-sm transition active:scale-[.99]"
+              className="rise panel block p-4 transition-colors hover:border-border-strong hover:bg-elevated"
               style={{ animationDelay: `${index * 35}ms` }}
             >
               <div className="flex items-start gap-3">
@@ -159,10 +156,8 @@ export function EmployeeDirectory({ workers, sites, openShifts, assignments, wee
               </div>
 
               <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                <span className={`rounded-full px-2.5 py-1 ${worker.is_active ? "bg-live/10 text-live" : "bg-bg text-muted"}`}>
-                  {worker.is_active ? "Aktiivne" : "Mitteaktiivne"}
-                </span>
-                {open && <span className="rounded-full bg-signal/10 px-2.5 py-1 text-signal">● Vahetuses</span>}
+                <StatusBadge tone={worker.is_active ? "live" : "neutral"}>{worker.is_active ? "Aktiivne" : "Mitteaktiivne"}</StatusBadge>
+                {open && <StatusBadge tone="primary"><span className="h-1.5 w-1.5 rounded-full bg-current" />Vahetuses</StatusBadge>}
               </div>
 
               <div className="mt-3 grid gap-2 rounded-xl bg-bg p-3 text-sm">
@@ -181,9 +176,9 @@ export function EmployeeDirectory({ workers, sites, openShifts, assignments, wee
       </div>
 
       {filtered.length > 0 && (
-        <div className="hidden overflow-x-auto rounded-2xl border border-border bg-surface sm:block">
-          <table className="w-full text-sm">
-            <thead className="border-b border-border text-left text-muted">
+        <div className="panel hidden overflow-x-auto sm:block">
+          <table className="data-table">
+            <thead>
               <tr>
                 <th className="px-4 py-3 font-medium">Töötaja</th>
                 <th className="px-4 py-3 font-medium">Kontakt</th>
@@ -207,7 +202,7 @@ export function EmployeeDirectory({ workers, sites, openShifts, assignments, wee
                 const seconds = weekSeconds[worker.id] ?? 0;
                 const rate = worker.pricing_type === "hourly" ? worker.hourly_rate ?? worker.self_hourly_rate ?? null : worker.hourly_rate;
                 return (
-                  <tr key={worker.id} className="rise border-b border-border last:border-0 hover:bg-bg" style={{ animationDelay: `${index * 25}ms` }}>
+                  <tr key={worker.id} className="rise" style={{ animationDelay: `${index * 25}ms` }}>
                     <td className="px-4 py-3">
                       <Link href={`/workers/${worker.id}`} className="flex min-w-48 items-center gap-3 hover:text-signal">
                         <EmployeeAvatar worker={worker} url={photoUrls[worker.id]} />
@@ -231,10 +226,8 @@ export function EmployeeDirectory({ workers, sites, openShifts, assignments, wee
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex rounded-full px-2.5 py-1 text-xs ${worker.is_active ? "bg-live/10 text-live" : "bg-bg text-muted"}`}>
-                        {worker.is_active ? "Aktiivne" : "Mitteaktiivne"}
-                      </span>
-                      <div className={`mt-1 text-xs ${open ? "text-signal" : "text-muted"}`}>{open ? "● Vahetuses" : "Vaba"}</div>
+                      <StatusBadge tone={worker.is_active ? "live" : "neutral"}>{worker.is_active ? "Aktiivne" : "Mitteaktiivne"}</StatusBadge>
+                      <div className={`mt-1.5 flex items-center gap-1.5 text-xs ${open ? "text-primary" : "text-muted"}`}><span className="h-1.5 w-1.5 rounded-full bg-current" />{open ? "Vahetuses" : "Vaba"}</div>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="tabular font-semibold">{hours1(seconds)} h</div>

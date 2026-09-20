@@ -46,7 +46,7 @@ export function EmployeeAssignmentManager({
           value={siteId}
           onChange={(event) => setSiteId(event.target.value)}
           disabled={busy}
-          className="mt-1 w-full rounded-lg border border-border bg-bg px-3 py-2 outline-none focus:border-signal disabled:opacity-60"
+          className="control mt-1 bg-bg"
         >
           <option value="">— vali aktiivne objekt —</option>
           {selectableSites.map((site) => (
@@ -58,7 +58,7 @@ export function EmployeeAssignmentManager({
         <button
           onClick={() => void updateAssignment(siteId)}
           disabled={busy || !siteId || !selectionChanged}
-          className="flex-1 rounded-lg bg-text px-3 py-2 text-sm font-semibold text-bg disabled:opacity-50"
+          className="btn-primary flex-1"
         >
           {busy ? "Salvestan…" : currentAssignment ? "Teisalda töötaja" : "Määra objekt"}
         </button>
@@ -66,7 +66,7 @@ export function EmployeeAssignmentManager({
           <button
             onClick={() => setConfirmRemove(true)}
             disabled={busy}
-            className="rounded-lg border border-alert px-3 py-2 text-sm text-alert hover:bg-alert/10 disabled:opacity-50"
+            className="btn-danger"
           >
             Eemalda objektilt
           </button>

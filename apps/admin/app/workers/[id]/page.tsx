@@ -13,6 +13,8 @@ import { AddShift } from "@/components/AddShift";
 import { MapView } from "@/components/MapView";
 import { pricingUnit, PRICING_LABELS, shiftTotal } from "@/lib/pricing";
 import type { EmployeeAssignment, EmployeeDocument, Profile, ShiftReport, Site } from "@/lib/types";
+import { Icon } from "@/components/Icon";
+import { StatusBadge } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -142,44 +144,43 @@ export default async function WorkerCard({
 
   return (
     <div className="space-y-6">
-      <Link href="/" className="text-sm text-muted hover:text-text">
+      <Link href="/" className="text-sm font-medium text-muted hover:text-primary">
         ← Töötajad
       </Link>
 
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-4">
           {photoUrl ? (
-            <img src={photoUrl} alt={`${worker.first_name} ${worker.last_name}`} className="h-20 w-20 shrink-0 rounded-2xl border border-border object-cover" />
+            <img src={photoUrl} alt={`${worker.first_name} ${worker.last_name}`} className="h-16 w-16 shrink-0 rounded-xl border border-border object-cover sm:h-20 sm:w-20" />
           ) : (
-            <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl border border-border bg-surface font-display text-xl font-bold text-muted">
+            <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl border border-border bg-surface font-display text-xl font-bold text-muted sm:h-20 sm:w-20">
               {`${worker.first_name.charAt(0)}${worker.last_name.charAt(0)}`.toUpperCase() || "?"}
             </span>
           )}
           <div className="min-w-0">
-          <h1 className="font-display text-3xl font-bold">
+          <h1 className="page-title truncate">
             {worker.first_name} {worker.last_name}
           </h1>
-          <p className="mt-1 text-sm text-muted">
-            {worker.position ?? "amet määramata"} · {worker.is_active ? "aktiivne" : "deaktiveeritud"}
-          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted"><span>{worker.position ?? "Amet määramata"}</span><StatusBadge tone={worker.is_active ? "live" : "neutral"}>{worker.is_active ? "Aktiivne" : "Mitteaktiivne"}</StatusBadge></div>
           <p className="mt-1 truncate text-sm text-muted">{worker.email ?? "e-post puudub"} · {worker.phone ?? "telefon puudub"}</p>
           </div>
         </div>
-        <div className="text-right">
-          <div className="tabular text-3xl font-semibold">{hours1(totalSeconds)} h</div>
+        <div className="panel min-w-44 px-4 py-3 text-left sm:text-right">
+          <div className="text-xs font-medium text-muted">Kuu tööaeg</div>
+          <div className="tabular text-2xl font-semibold">{hours1(totalSeconds)} h</div>
           {totalEarned > 0 && (
             <div className="text-sm text-muted">
               {money(totalEarned, worker.currency)} · segahinnastusega töö
             </div>
           )}
         </div>
-      </div>
+      </header>
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* left: calendar + shifts */}
         <div className="space-y-6 lg:col-span-2">
           {/* month switcher + calendar */}
-          <div className="rounded-2xl border border-border bg-surface p-5">
+          <div className="panel-pad">
             <div className="mb-4 flex items-center justify-between">
               <Link href={`?y=${prev.getFullYear()}&m=${prev.getMonth()}`} className="rounded px-2 py-1 text-muted hover:text-text">
                 ←
@@ -228,7 +229,7 @@ export default async function WorkerCard({
 
           {/* GPS map */}
           {markers.length > 0 && (
-            <div className="overflow-hidden rounded-2xl border border-border bg-surface p-2">
+            <div className="panel overflow-hidden p-2">
               <MapView markers={markers} height={340} />
               <p className="px-3 py-2 text-xs text-muted">
                 Roheline = algus objektil · Punane = algus väljaspool tsooni · Hall = lõpp
@@ -256,10 +257,10 @@ export default async function WorkerCard({
               return (
                 <div
                   key={s.id}
-                  className="rise rounded-2xl border border-border bg-surface p-4"
+                  className="rise panel p-4"
                   style={{ animationDelay: `${i * 30}ms` }}
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                       <div className="font-medium">{dmy(s.started_at)}</div>
                       <div className="tabular text-sm text-muted">
@@ -268,26 +269,26 @@ export default async function WorkerCard({
                         <span> · {s.site_name ?? "objekt määramata"}</span>
                       </div>
                     </div>
-                    <div className="text-right">
+                    <div className="sm:text-right">
                       <div className="tabular text-lg font-semibold">{hours1(s.worked_seconds)} h</div>
                       <div className="tabular text-sm font-semibold text-signal">{money(shiftTotal(s, fallbackRate), worker.currency)}</div>
                       <div className="text-xs text-muted">
                         {PRICING_LABELS[s.pricing_type ?? "hourly"]} · {s.pricing_rate?.toFixed(2) ?? "—"} €/{pricingUnit(s.pricing_type ?? "hourly", s.unit)}
                         {(s.pricing_type ?? "hourly") !== "hourly" && s.quantity != null ? ` · ${s.quantity} ${s.unit}` : ""}
                       </div>
-                      <div className="flex items-center justify-end gap-2">
-                        {s.source === "manual" && <span className="text-xs text-muted">käsitsi</span>}
-                        {s.status === "open" && <span className="text-xs text-signal">avatud</span>}
-                        {s.is_stale && <span className="text-xs text-alert">aegunud</span>}
-                        {s.out_of_zone && <span className="text-xs text-alert">väljaspool tsooni</span>}
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5 sm:justify-end">
+                        {s.source === "manual" && <StatusBadge>Käsitsi</StatusBadge>}
+                        {s.status === "open" && <StatusBadge tone="primary">Avatud</StatusBadge>}
+                        {s.is_stale && <StatusBadge tone="alert">Aegunud</StatusBadge>}
+                        {s.out_of_zone && <StatusBadge tone="alert">Väljaspool tsooni</StatusBadge>}
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-1 flex items-center justify-between">
-                    <span className="text-xs text-muted">
-                      🟢 {s.start_address ?? "—"}
-                      {s.end_address ? <> · 🔴 {s.end_address}</> : null}
+                  <div className="mt-3 flex flex-col gap-2 border-t border-border pt-3 sm:flex-row sm:items-center sm:justify-between">
+                    <span className="min-w-0 text-xs text-muted">
+                      <span className="flex items-start gap-1.5"><Icon name="location" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-live" /><span className="break-words">{s.start_address ?? "Algusaadress puudub"}</span></span>
+                      {s.end_address ? <span className="mt-1 flex items-start gap-1.5"><Icon name="location" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted" /><span className="break-words">{s.end_address}</span></span> : null}
                     </span>
                     <EditShift shift={{ id: s.id, started_at: s.started_at, ended_at: s.ended_at, break_seconds: s.break_seconds, status: s.status, pricing_type: s.pricing_type, pricing_rate: s.pricing_rate, quantity: s.quantity, unit: s.unit }} />
                   </div>
@@ -311,7 +312,7 @@ export default async function WorkerCard({
         <div className="space-y-6">
           <EmployeeProfileEditor worker={worker} photoUrl={photoUrl} />
 
-          <section className="space-y-4 rounded-2xl border border-border bg-surface p-5">
+          <section className="panel-pad space-y-4">
             <div>
               <h3 className="font-display text-lg font-semibold">Tööinfo</h3>
               <p className="mt-1 text-sm text-muted">Praegune objekt ja määramiste ajalugu</p>

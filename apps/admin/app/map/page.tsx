@@ -1,5 +1,6 @@
 import { supabaseServer } from "@/lib/supabase-server";
 import { LiveMap } from "@/components/LiveMap";
+import { PageHeader, StatusBadge } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -21,14 +22,9 @@ export default async function MapPage() {
     }));
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-3xl font-bold">Elav kaart</h1>
-        <p className="mt-1 text-sm text-muted">
-          {points.length} töötajat hetkel vahetuses. Punane tähis = väljaspool objekti tsooni.
-        </p>
-      </div>
-      <div className="overflow-hidden rounded-2xl border border-border bg-surface p-2">
+    <div className="page-stack">
+      <PageHeader eyebrow="Hetkeolukord" title="Elav kaart" description="Kaardil kuvatakse vahetuse alustamise asukoht. Asukohta ei jälgita taustal." actions={<StatusBadge tone={points.length > 0 ? "live" : "neutral"}>{points.length} praegu tööl</StatusBadge>} />
+      <div className="panel overflow-hidden p-2">
         <LiveMap points={points} />
       </div>
     </div>

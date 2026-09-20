@@ -9,6 +9,7 @@ import { money, hours1 } from "@/lib/format";
 import { isoWeek, weekDates, weekKey } from "@/lib/week";
 import type { Profile } from "@/lib/types";
 import { calculatePricingTotal, pricingUnit, PRICING_LABELS, shiftTotal } from "@/lib/pricing";
+import { Icon } from "./Icon";
 
 interface Shift {
   id: string;
@@ -97,11 +98,11 @@ export function WorkerHome({
     return (
       <Centered>
         <LangSwitcher />
-        <div className="text-5xl">⏳</div>
+        <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-signal/10 text-signal"><Icon name="clock" className="h-6 w-6" /></span>
         <h1 className="font-display text-2xl font-bold">{t("pendingTitle")}</h1>
         <p className="text-muted">{t("pendingBody")}</p>
         <div className="flex gap-2">
-          <button onClick={() => router.refresh()} className="rounded-lg bg-text px-5 py-2.5 font-semibold text-bg">{t("checkAgain")}</button>
+          <button onClick={() => router.refresh()} className="btn-primary">{t("checkAgain")}</button>
           <SignOut />
         </div>
       </Centered>
@@ -225,33 +226,33 @@ export function WorkerHome({
         <div className="flex items-center gap-2">
           {gps === "ok" && <span className="text-xs text-live">● GPS</span>}
           {gps === "getting" && <span className="text-xs text-muted">GPS…</span>}
-          <button onClick={() => setShowSettings((s) => !s)} className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted">⚙</button>
+          <button onClick={() => setShowSettings((s) => !s)} aria-label={t("settings")} aria-expanded={showSettings} className="btn-secondary h-10 w-10 px-0"><Icon name="settings" className="h-4 w-4" /></button>
         </div>
       </div>
 
       {showSettings && (
-        <div className="space-y-3 rounded-2xl border border-border bg-surface p-4 text-sm">
+        <div className="panel-pad space-y-3 text-sm">
           <LangSwitcher />
           {profile.hourly_rate != null ? (
             <div><span className="text-muted">Hinna tüüp: {PRICING_LABELS[pricingType]} · </span><b className="tabular">{money(profile.hourly_rate, profile.currency)}/{pricingUnit(pricingType, profile.pricing_unit)}</b></div>
           ) : (
             pricingType === "hourly" ? <label className="block"><span className="text-muted">{t("yourRate")}</span>
-              <input value={rate} onChange={(e) => setRate(e.target.value)} placeholder="0.00" className="mt-1 w-full rounded-lg border border-border bg-bg px-3 py-2" /></label>
+              <input value={rate} onChange={(e) => setRate(e.target.value)} placeholder="0.00" className="control mt-1 bg-bg" /></label>
             : <p className="text-muted">Tööandja pole hinda määranud.</p>
           )}
           <label className="flex items-center gap-2"><input type="checkbox" checked={showEarn} onChange={(e) => setShowEarn(e.target.checked)} /> {t("showEarnings")}</label>
           <div className="flex gap-2">
-            <button onClick={saveSettings} className="flex-1 rounded-lg bg-text py-2 font-semibold text-bg">{t("save")}</button>
-            <button onClick={toggleTheme} className="rounded-lg border border-border px-3">◐ {t("theme")}</button>
+            <button onClick={saveSettings} className="btn-primary flex-1">{t("save")}</button>
+            <button onClick={toggleTheme} className="btn-secondary"><Icon name="moon" className="h-4 w-4" />{t("theme")}</button>
           </div>
           <SignOut />
         </div>
       )}
 
       {/* tabs */}
-      <div className="flex gap-1 rounded-lg bg-surface p-1">
-        <button onClick={() => setView("shift")} className={`flex-1 rounded-md py-2 text-sm ${view === "shift" ? "bg-bg font-medium" : "text-muted"}`}>{t("tabShift")}</button>
-        <button onClick={() => setView("hours")} className={`flex-1 rounded-md py-2 text-sm ${view === "hours" ? "bg-bg font-medium" : "text-muted"}`}>{t("tabHours")}</button>
+      <div className="flex gap-1 rounded-lg bg-surface p-1" role="tablist">
+        <button role="tab" aria-selected={view === "shift"} onClick={() => setView("shift")} className={`flex-1 rounded-md py-2 text-sm ${view === "shift" ? "bg-primary/10 font-medium text-primary" : "text-muted"}`}>{t("tabShift")}</button>
+        <button role="tab" aria-selected={view === "hours"} onClick={() => setView("hours")} className={`flex-1 rounded-md py-2 text-sm ${view === "hours" ? "bg-primary/10 font-medium text-primary" : "text-muted"}`}>{t("tabHours")}</button>
       </div>
 
       {view === "shift" ? (
@@ -279,7 +280,7 @@ export function WorkerHome({
           {/* actions */}
           <div className="flex flex-col items-center gap-3">
             {!active ? (
-              <button onClick={start} disabled={busy} className="h-28 w-28 rounded-full bg-text px-2 text-center text-base font-semibold leading-tight text-bg disabled:opacity-60">
+              <button onClick={start} disabled={busy} className="h-28 w-28 rounded-full bg-primary px-2 text-center text-base font-semibold leading-tight text-primary-foreground transition-colors hover:bg-primary-hover disabled:opacity-60">
                 {busy ? "…" : t("startShift")}
               </button>
             ) : (
@@ -296,21 +297,21 @@ export function WorkerHome({
           </div>
 
           {collectingQuantity && activePricingType !== "hourly" && (
-            <div className="space-y-3 rounded-2xl border border-signal bg-surface p-4">
+            <div className="panel-pad space-y-3 border-signal">
               <label className="block text-sm">
                 <span className="text-muted">{activePricingType === "area" ? "Tehtud kogus (m²)" : `Kogus (${activeUnit ?? "ühik"})`}</span>
                 <input autoFocus inputMode="decimal" value={completedQuantity} onChange={(event) => setCompletedQuantity(event.target.value)} className="mt-1 w-full rounded-lg border border-border bg-bg px-3 py-2 text-lg tabular" />
               </label>
               <div className="text-right"><span className="text-sm text-muted">Kokku: </span><b className="tabular text-lg text-signal">{completionTotal == null ? "—" : money(completionTotal, profile.currency)}</b></div>
               <div className="flex gap-2">
-                <button disabled={busy || !Number.isFinite(parsedCompleted) || parsedCompleted < 0 || completionTotal == null} onClick={() => void finish(parsedCompleted)} className="flex-1 rounded-lg bg-text py-2 font-semibold text-bg disabled:opacity-50">Salvesta ja lõpeta</button>
-                <button onClick={() => setCollectingQuantity(false)} className="rounded-lg border border-border px-4">Tühista</button>
+                <button disabled={busy || !Number.isFinite(parsedCompleted) || parsedCompleted < 0 || completionTotal == null} onClick={() => void finish(parsedCompleted)} className="btn-primary flex-1">Salvesta ja lõpeta</button>
+                <button onClick={() => setCollectingQuantity(false)} className="btn-secondary">Tühista</button>
               </div>
             </div>
           )}
 
           {/* pay week total */}
-          <div className="rounded-2xl border border-border bg-surface p-4 text-center">
+          <div className="panel p-4 text-center">
             <div className="text-sm text-muted">{t("weekTotal")}</div>
             <div className="tabular text-2xl font-semibold">{hours1(weekSeconds)} {t("hoursUnit")}</div>
             {showEarn && weekEarned > 0 && (
@@ -324,7 +325,7 @@ export function WorkerHome({
         </>
       ) : (
         <div className="flex-1 space-y-4">
-          <div className="rounded-2xl border border-border bg-surface p-4 text-center">
+          <div className="panel p-4 text-center">
             <div className="text-sm text-muted">{t("weekTotal")}</div>
             <div className="tabular text-3xl font-semibold">{hours1(weekSeconds)} {t("hoursUnit")}</div>
             {showEarn && weekEarned > 0 && (

@@ -129,16 +129,16 @@ export function AddShift({
     return (
       <button
         onClick={() => setOpen(true)}
-        className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:border-signal"
+        className="btn-secondary"
       >
         + Lisa töö käsitsi
       </button>
     );
 
-  const input = "rounded-lg border border-border bg-bg px-2 py-1.5 text-sm";
+  const input = "control bg-bg";
 
   return (
-    <div className="space-y-3 rounded-2xl border border-border bg-surface p-4 text-sm">
+    <div className="panel-pad space-y-4 text-sm">
       <div className="font-medium">Lisa töö käsitsi — {workerName}</div>
       <div className="grid gap-2 sm:grid-cols-2">
         <label>
@@ -194,10 +194,10 @@ export function AddShift({
       </div>
       {err && <p className="text-alert">{err}</p>}
       <div className="flex gap-2">
-        <button onClick={save} disabled={busy} className="rounded-lg bg-text px-4 py-1.5 font-semibold text-bg disabled:opacity-60">
-          {busy ? "…" : "Lisa"}
+        <button onClick={save} disabled={busy} className="btn-primary">
+          {busy ? "Lisan…" : "Lisa töö"}
         </button>
-        <button onClick={() => setOpen(false)} className="rounded-lg border border-border px-4 py-1.5">
+        <button onClick={() => setOpen(false)} className="btn-secondary">
           Tühista
         </button>
       </div>

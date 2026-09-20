@@ -95,5 +95,5 @@ export function MapView({
     if (markers.length > 1) map.fitBounds(bounds, { padding: 60, maxZoom: 15 });
   }, [markers]);
 
-  return <div ref={ref} style={{ height, width: "100%", borderRadius: 16 }} />;
+  return <div ref={ref} className="overflow-hidden rounded-lg" style={{ height, width: "100%" }} aria-label="Töökohtade ja vahetuste kaart" />;
 }

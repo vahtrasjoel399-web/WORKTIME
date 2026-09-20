@@ -207,10 +207,10 @@ export function EditShift({ shift }: { shift: ShiftLite }) {
       <div className="text-right text-sm"><span className="text-muted">Kokku: </span><b className="tabular text-signal">{previewTotal == null ? "—" : money(previewTotal)}</b></div>
 
       <div className="flex gap-2">
-        <button onClick={save} disabled={busy} className="flex-1 rounded bg-text py-1.5 font-medium text-bg disabled:opacity-60">
-          {busy ? "…" : "Salvesta"}
+        <button onClick={save} disabled={busy} className="btn-primary flex-1">
+          {busy ? "Salvestan…" : "Salvesta"}
         </button>
-        <button onClick={() => setOpen(false)} className="flex-1 rounded border border-border py-1.5">
+        <button onClick={() => setOpen(false)} className="btn-secondary flex-1">
           Tühista
         </button>
       </div>

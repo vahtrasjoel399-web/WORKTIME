@@ -113,31 +113,31 @@ export default function Login() {
   if (joinCode) {
     return (
       <div className="flex min-h-[80vh] items-center justify-center px-4">
-        <div className="w-full max-w-sm space-y-5 rounded-2xl border border-border bg-surface p-8 text-center">
+        <div className="panel w-full max-w-sm space-y-5 p-8 text-center">
           <h1 className="font-display text-2xl font-bold">{t("companyCreated")}</h1>
           <p className="text-sm text-muted">{t("shareCode")}</p>
           <div className="tabular rounded-xl border border-signal/40 bg-signal/10 py-6 text-4xl font-bold tracking-[0.3em] text-signal">{joinCode}</div>
-          <button onClick={() => { router.push("/"); router.refresh(); }} className="w-full rounded-lg bg-text py-3 font-semibold text-bg">{t("openPanel")}</button>
+          <button onClick={() => { router.push("/"); router.refresh(); }} className="btn-primary w-full">{t("openPanel")}</button>
         </div>
       </div>
     );
   }
 
-  const input = "w-full rounded-lg border border-border bg-bg px-4 py-3 outline-none focus:border-signal";
+  const input = "control bg-bg px-4 py-3";
   const tab = (m: Mode, label: string) => (
-    <button onClick={() => { setMode(m); setError(null); }} className={`flex-1 rounded-md py-2 text-sm ${mode === m ? "bg-surface font-medium" : "text-muted"}`}>{label}</button>
+    <button type="button" role="tab" aria-selected={mode === m} onClick={() => { setMode(m); setError(null); }} className={`flex-1 rounded-md px-2 py-2 text-sm transition-colors ${mode === m ? "bg-surface font-medium text-text" : "text-muted hover:text-text"}`}>{label}</button>
   );
 
   return (
     <div className="flex min-h-[80vh] items-center justify-center px-4">
-      <div className="auth-card w-full max-w-sm space-y-5 rounded-2xl border border-border bg-surface p-5 shadow-xl shadow-black/5 sm:p-8">
+      <div className="auth-card panel w-full max-w-sm space-y-5 p-5 shadow-xl shadow-black/5 sm:p-8">
         <LangSwitcher />
         <div>
           <h1 className="font-display text-2xl font-bold">Tööaeg</h1>
           <p className="mt-1 text-sm text-muted">{t("tagline")}</p>
         </div>
 
-        <div className="flex gap-1 rounded-lg bg-bg p-1">
+        <div className="flex gap-1 rounded-lg bg-bg p-1" role="tablist" aria-label="Konto tüüp">
           {tab("signin", t("tabSignin"))}
           {tab("worker", t("tabWorker"))}
           {tab("company", t("tabCompany"))}
@@ -145,11 +145,11 @@ export default function Login() {
 
         {mode === "signin" && (
           <form onSubmit={signIn} className="space-y-4">
-            <input className={input} placeholder={t("email")} type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-            <input className={input} placeholder={t("password")} type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <label><span className="field-label">{t("email")}</span><input className={input} autoComplete="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></label>
+            <label><span className="field-label">{t("password")}</span><input className={input} autoComplete="current-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></label>
             {error && <p key={shake} role="alert" className="error-shake rounded-lg border border-alert/30 bg-alert/10 px-3 py-2 text-sm text-alert">{error}</p>}
             {notice && <p role="status" className="rounded-lg border border-live/30 bg-live/10 px-3 py-2 text-sm text-live">{notice}</p>}
-            <button disabled={busy} className="w-full rounded-lg bg-text py-3 font-semibold text-bg disabled:opacity-60">{busy ? "…" : t("signin")}</button>
+            <button disabled={busy} className="btn-primary w-full">{busy ? `${t("signin")}…` : t("signin")}</button>
             <button type="button" onClick={resetPassword} className="w-full text-sm text-muted hover:text-signal">{t("forgotPassword")}</button>
             <p className="text-center text-xs text-muted">{t("autoRole")}</p>
           </form>
@@ -157,32 +157,32 @@ export default function Login() {
 
         {mode === "worker" && (
           <form onSubmit={registerWorker} className="space-y-4">
-            <div className="flex gap-2">
-              <input className={input} placeholder={t("firstName")} value={first} onChange={(e) => setFirst(e.target.value)} />
-              <input className={input} placeholder={t("lastName")} value={last} onChange={(e) => setLast(e.target.value)} />
+            <div className="grid grid-cols-2 gap-2">
+              <label><span className="field-label">{t("firstName")}</span><input className={input} autoComplete="given-name" value={first} onChange={(e) => setFirst(e.target.value)} /></label>
+              <label><span className="field-label">{t("lastName")}</span><input className={input} autoComplete="family-name" value={last} onChange={(e) => setLast(e.target.value)} /></label>
             </div>
-            <input className={input} placeholder={t("email")} type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-            <input className={input} placeholder={t("password")} type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-            <input className={`${input} tracking-[0.3em] uppercase`} placeholder={t("companyCode")} value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} />
+            <label><span className="field-label">{t("email")}</span><input className={input} autoComplete="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></label>
+            <label><span className="field-label">{t("password")}</span><input className={input} autoComplete="new-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></label>
+            <label><span className="field-label">{t("companyCode")}</span><input className={`${input} tracking-[0.3em] uppercase`} value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} /></label>
             {error && <p key={shake} role="alert" className="error-shake rounded-lg border border-alert/30 bg-alert/10 px-3 py-2 text-sm text-alert">{error}</p>}
             {notice && <p role="status" className="rounded-lg border border-live/30 bg-live/10 px-3 py-2 text-sm text-live">{notice}</p>}
-            <button disabled={busy} className="w-full rounded-lg bg-signal py-3 font-semibold text-[#0B1320] disabled:opacity-60">{busy ? "…" : t("createWorker")}</button>
+            <button disabled={busy} className="btn-primary w-full">{busy ? `${t("createWorker")}…` : t("createWorker")}</button>
             <p className="text-center text-xs text-muted">{t("codeFromEmployer")}</p>
           </form>
         )}
 
         {mode === "company" && (
           <form onSubmit={createCompany} className="space-y-4">
-            <input className={input} placeholder={t("companyName")} value={company} onChange={(e) => setCompany(e.target.value)} />
-            <div className="flex gap-2">
-              <input className={input} placeholder={t("firstName")} value={first} onChange={(e) => setFirst(e.target.value)} />
-              <input className={input} placeholder={t("lastName")} value={last} onChange={(e) => setLast(e.target.value)} />
+            <label><span className="field-label">{t("companyName")}</span><input className={input} autoComplete="organization" value={company} onChange={(e) => setCompany(e.target.value)} /></label>
+            <div className="grid grid-cols-2 gap-2">
+              <label><span className="field-label">{t("firstName")}</span><input className={input} autoComplete="given-name" value={first} onChange={(e) => setFirst(e.target.value)} /></label>
+              <label><span className="field-label">{t("lastName")}</span><input className={input} autoComplete="family-name" value={last} onChange={(e) => setLast(e.target.value)} /></label>
             </div>
-            <input className={input} placeholder={t("email")} type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-            <input className={input} placeholder={t("password")} type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <label><span className="field-label">{t("email")}</span><input className={input} autoComplete="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></label>
+            <label><span className="field-label">{t("password")}</span><input className={input} autoComplete="new-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></label>
             {error && <p key={shake} role="alert" className="error-shake rounded-lg border border-alert/30 bg-alert/10 px-3 py-2 text-sm text-alert">{error}</p>}
             {notice && <p role="status" className="rounded-lg border border-live/30 bg-live/10 px-3 py-2 text-sm text-live">{notice}</p>}
-            <button disabled={busy} className="w-full rounded-lg bg-text py-3 font-semibold text-bg disabled:opacity-60">{busy ? "…" : t("createCompany")}</button>
+            <button disabled={busy} className="btn-primary w-full">{busy ? `${t("createCompany")}…` : t("createCompany")}</button>
           </form>
         )}
         <Link href="/privacy" className="block text-center text-xs text-muted hover:text-signal">{t("privacyPolicy")}</Link>

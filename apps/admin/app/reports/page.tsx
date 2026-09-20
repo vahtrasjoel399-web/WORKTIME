@@ -6,6 +6,7 @@ import { addWeeks, isFullWeek, isoWeek, parseYmd, startOfWeek, weekRange, ymd } 
 import type { ShiftReport } from "@/lib/types";
 import { ExportButtons } from "@/components/ExportButtons";
 import { pricingUnit, PRICING_LABELS } from "@/lib/pricing";
+import { EmptyState, MetricStrip, PageHeader, StatusBadge } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -57,64 +58,55 @@ export default async function ReportsPage({
     : `${fmt(fromStr)} – ${fmt(toStr)}`;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="font-display text-3xl font-bold">Nädala aruanne</h1>
-          <p className="mt-1 text-sm text-muted">{period} · palgaarvestuseks</p>
-        </div>
-        <ExportButtons from={fromStr} to={toStr} />
-      </div>
+    <div className="page-stack">
+      <PageHeader eyebrow="Palgaarvestus" title="Tööaruanne" description={period} actions={<ExportButtons from={fromStr} to={toStr} />} />
 
       {/* week navigation — one click per pay period */}
       <div className="flex flex-wrap items-center gap-2">
-        <Link href={href(prev)} className="rounded-lg border border-border px-3 py-2 text-sm hover:border-signal">
+        <Link href={href(prev)} className="btn-secondary">
           ← Eelmine nädal
         </Link>
         <Link
           href={href(thisWeek)}
-          className={`rounded-lg px-3 py-2 text-sm font-medium ${
-            isCurrent ? "bg-text text-bg" : "border border-border hover:border-signal"
+          className={`btn ${
+            isCurrent ? "bg-primary text-primary-foreground" : "border border-border-strong bg-surface hover:bg-bg"
           }`}
         >
           See nädal
         </Link>
-        <Link href={href(next)} className="rounded-lg border border-border px-3 py-2 text-sm hover:border-signal">
+        <Link href={href(next)} className="btn-secondary">
           Järgmine nädal →
         </Link>
         <Link
           href={href({ from: ymd(startOfWeek(addWeeks(new Date(), -3))), to: thisWeek.to })}
-          className="rounded-lg border border-border px-3 py-2 text-sm text-muted hover:border-signal hover:text-text"
+          className="btn-quiet"
         >
           Viimased 4 nädalat
         </Link>
       </div>
 
       {/* summary */}
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Stat label="Tunnid perioodis" value={`${hours1(grandTotal)} h`} />
-        <Stat label="Palgafond (bruto, orient.)" value={money(grandEarned, currency)} accent />
-        <Stat
-          label="Töötajaid tundidega"
-          value={String(matrix.workers.filter((w) => matrix.totalsByWorker[w.id] > 0).length)}
-        />
-      </div>
+      <MetricStrip items={[
+        { label: "Tunnid perioodis", value: `${hours1(grandTotal)} h`, detail: period },
+        { label: "Palgafond", value: money(grandEarned, currency), detail: "Bruto, hinnanguline", tone: "signal" },
+        { label: "Töötajaid tööajaga", value: matrix.workers.filter((w) => matrix.totalsByWorker[w.id] > 0).length, detail: `${matrix.workers.length} töötajat kokku` },
+      ]} />
 
-      <form className="flex flex-wrap items-end gap-3 rounded-2xl border border-border bg-surface p-4">
+      <form className="panel flex flex-wrap items-end gap-3 p-4">
         <label className="text-sm">
-          <span className="block text-muted">Alates</span>
-          <input type="date" name="from" defaultValue={fromStr} className="mt-1 rounded-lg border border-border bg-bg px-3 py-2" />
+          <span className="field-label">Alates</span>
+          <input type="date" name="from" defaultValue={fromStr} className="control bg-bg" />
         </label>
         <label className="text-sm">
-          <span className="block text-muted">Kuni</span>
-          <input type="date" name="to" defaultValue={toStr} className="mt-1 rounded-lg border border-border bg-bg px-3 py-2" />
+          <span className="field-label">Kuni</span>
+          <input type="date" name="to" defaultValue={toStr} className="control bg-bg" />
         </label>
-        <button className="rounded-lg bg-text px-4 py-2 font-medium text-bg">Näita</button>
+        <button className="btn-primary">Näita perioodi</button>
       </form>
 
-      <div className="overflow-x-auto rounded-2xl border border-border bg-surface">
-        <table className="w-full text-sm">
-          <thead className="border-b border-border text-muted">
+      {matrix.workers.length === 0 ? <EmptyState title="Aruandes pole töötajaid" description="Valitud perioodi kohta ei ole kuvamiseks töötajaid ega tööaega." /> : <div className="panel overflow-x-auto">
+        <table className="data-table">
+          <thead>
             <tr>
               <th className="sticky left-0 bg-surface px-3 py-2 text-left font-medium">Töötaja</th>
               {matrix.days.map((d) => {
@@ -140,7 +132,7 @@ export default async function ReportsPage({
                     {w.name}
                   </Link>
                   {matrix.flagsByWorker[w.id] > 0 && (
-                    <span className="ml-2 text-xs text-alert">⚑{matrix.flagsByWorker[w.id]}</span>
+                    <span className="ml-2"><StatusBadge tone="alert">Väljaspool tsooni · {matrix.flagsByWorker[w.id]}</StatusBadge></span>
                   )}
                 </td>
                 {matrix.days.map((d) => {
@@ -174,15 +166,15 @@ export default async function ReportsPage({
             </tr>
           </tfoot>
         </table>
-      </div>
+      </div>}
 
       {/* when the period spans several weeks, show what each pay week owes */}
       {multiWeek && (
         <div className="space-y-2">
           <h2 className="font-display text-xl font-bold">Nädalate kaupa</h2>
-          <div className="overflow-x-auto rounded-2xl border border-border bg-surface">
-            <table className="w-full text-sm">
-              <thead className="border-b border-border text-muted">
+          <div className="panel overflow-x-auto">
+            <table className="data-table">
+              <thead>
                 <tr>
                   <th className="sticky left-0 bg-surface px-3 py-2 text-left font-medium">Töötaja</th>
                   {weekly.weeks.map((wk) => (
@@ -235,18 +227,9 @@ export default async function ReportsPage({
       )}
 
       <p className="text-xs text-muted">
-        ⚑ = kordi väljaspool objekti tsooni. Summad on bruto ja orienteeruvad (tunnid × hind või tehtud kogus × hind) —
+        Väljaspool tsooni = kordi, mil töö algus märgiti objekti alast eemal. Summad on bruto ja orienteeruvad (tunnid × hind või tehtud kogus × hind) —
         ületunde, öötööd ega makse siin ei arvestata.
       </p>
-    </div>
-  );
-}
-
-function Stat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
-  return (
-    <div className="rounded-2xl border border-border bg-surface p-4">
-      <div className="text-sm text-muted">{label}</div>
-      <div className={`tabular text-2xl font-semibold ${accent ? "text-signal" : ""}`}>{value}</div>
     </div>
   );
 }

@@ -125,40 +125,42 @@ export function AddWorker({ sites, companyId, actorId }: { sites: Site[]; compan
     router.refresh();
   }
 
-  const input = "w-full rounded-lg border border-border bg-bg px-3 py-2 outline-none focus:border-signal";
+  const input = "control bg-bg";
 
   if (!open)
     return (
-      <button onClick={() => setOpen(true)} className="rounded-lg bg-text px-4 py-2 text-sm font-medium text-bg">
-        + Lisa töötaja
+      <button onClick={() => setOpen(true)} className="btn-primary">
+        Lisa töötaja
       </button>
     );
 
   return (
     <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 p-4" onClick={() => setOpen(false)}>
-      <div className="max-h-[calc(100dvh-2rem)] w-full max-w-lg space-y-3 overflow-y-auto rounded-2xl border border-border bg-surface p-6" onClick={(e) => e.stopPropagation()}>
-        <h3 className="font-display text-lg font-semibold">{sent ? "Kutse saadetud" : "Lisa töötaja"}</h3>
+      <div role="dialog" aria-modal="true" aria-labelledby="add-worker-title" className="dialog-in max-h-[calc(100dvh-2rem)] w-full max-w-lg space-y-4 overflow-y-auto rounded-xl border border-border bg-surface p-5 shadow-2xl sm:p-6" onClick={(e) => e.stopPropagation()}>
+        <div><h3 id="add-worker-title" className="font-display text-lg font-semibold">{sent ? "Kutse saadetud" : "Lisa töötaja"}</h3>{!sent && <p className="mt-1 text-sm text-muted">Sisesta põhiandmed ja vali töötaja tasustamise viis.</p>}</div>
         {sent ? (
           <>
             <p className="text-sm text-muted">Töötaja sai turvalise e-posti kutse, mille kaudu ta määrab ise parooli.</p>
             {uploadWarning && <p className="rounded-lg border border-alert/30 bg-alert/10 px-3 py-2 text-sm text-alert">{uploadWarning}</p>}
             <div className="grid grid-cols-2 gap-2">
-              {createdId && <button onClick={() => router.push(`/workers/${createdId}`)} className="rounded-lg border border-border py-2 font-semibold">Ava profiil</button>}
-              <button onClick={() => { setOpen(false); setSent(false); setCreatedId(null); setUploadWarning(null); }} className="rounded-lg bg-text py-2 font-semibold text-bg">Valmis</button>
+              {createdId && <button onClick={() => router.push(`/workers/${createdId}`)} className="btn-secondary">Ava profiil</button>}
+              <button onClick={() => { setOpen(false); setSent(false); setCreatedId(null); setUploadWarning(null); }} className="btn-primary">Valmis</button>
             </div>
           </>
         ) : (<>
-        <div className="flex gap-2">
-          <input className={input} placeholder="Eesnimi" value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} />
-          <input className={input} placeholder="Perekonnanimi" value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label><span className="field-label">Eesnimi</span><input className={input} autoComplete="given-name" value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} /></label>
+          <label><span className="field-label">Perekonnanimi</span><input className={input} autoComplete="family-name" value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} /></label>
         </div>
-        <input className={input} placeholder="E-post" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-        <input className={input} placeholder="Telefon (valikuline)" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-        <input className={input} placeholder="Ametikoht (valikuline)" value={form.position} onChange={(e) => setForm({ ...form, position: e.target.value })} />
-        <select className={input} value={form.initial_site_id} onChange={(e) => setForm({ ...form, initial_site_id: e.target.value })}>
-          <option value="">Esialgne objekt (valikuline)</option>
+        <label><span className="field-label">E-post</span><input className={input} type="email" autoComplete="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></label>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label><span className="field-label">Telefon <span className="font-normal text-muted">(valikuline)</span></span><input className={input} type="tel" autoComplete="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></label>
+          <label><span className="field-label">Ametikoht <span className="font-normal text-muted">(valikuline)</span></span><input className={input} value={form.position} onChange={(e) => setForm({ ...form, position: e.target.value })} /></label>
+        </div>
+        <label><span className="field-label">Esialgne objekt <span className="font-normal text-muted">(valikuline)</span></span><select className={input} value={form.initial_site_id} onChange={(e) => setForm({ ...form, initial_site_id: e.target.value })}>
+          <option value="">Objekti ei määrata</option>
           {sites.filter((site) => site.status === "active").map((site) => <option key={site.id} value={site.id}>{site.name}</option>)}
-        </select>
+        </select></label>
         <label className="block">
           <span className="mb-1 block text-xs text-muted">Hinna tüüp</span>
           <select className={input} value={form.pricing_type} onChange={(e) => setForm({ ...form, pricing_type: e.target.value as PricingType, pricing_unit: e.target.value === "area" ? "m²" : form.pricing_unit })}>
@@ -168,12 +170,12 @@ export function AddWorker({ sites, companyId, actorId }: { sites: Site[]; compan
           </select>
         </label>
         {form.pricing_type === "quantity" && (
-          <input className={input} maxLength={24} placeholder="Ühik (nt tk, kompl, kast)" value={form.pricing_unit} onChange={(e) => setForm({ ...form, pricing_unit: e.target.value })} />
+          <label><span className="field-label">Ühik</span><input className={input} maxLength={24} placeholder="nt tk, komplekt või kast" value={form.pricing_unit} onChange={(e) => setForm({ ...form, pricing_unit: e.target.value })} /></label>
         )}
-        <div className="relative">
-          <input className={`${input} pr-20`} inputMode="decimal" placeholder="Hind (valikuline)" value={form.hourly_rate} onChange={(e) => setForm({ ...form, hourly_rate: e.target.value })} />
+        <label><span className="field-label">Hind <span className="font-normal text-muted">(valikuline)</span></span><div className="relative">
+          <input className={`${input} pr-20`} inputMode="decimal" placeholder="0.00" value={form.hourly_rate} onChange={(e) => setForm({ ...form, hourly_rate: e.target.value })} />
           <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted">€/{pricingUnit(form.pricing_type, form.pricing_unit)}</span>
-        </div>
+        </div></label>
         <div className="grid gap-2 sm:grid-cols-2">
           <label className="cursor-pointer rounded-lg border border-border bg-bg px-3 py-2 text-sm hover:border-signal">
             <span className="block text-xs text-muted">Profiilifoto</span>
@@ -187,12 +189,12 @@ export function AddWorker({ sites, companyId, actorId }: { sites: Site[]; compan
           </label>
         </div>
         <p className="text-xs text-muted">Faili maksimaalne suurus on 10 MB.</p>
-        {error && <p className="text-sm text-alert">{error}</p>}
+        {error && <p role="alert" className="rounded-lg border border-alert/30 bg-alert/10 px-3 py-2 text-sm text-alert">{error}</p>}
         <div className="flex gap-2 pt-1">
-          <button onClick={submit} disabled={busy} className="flex-1 rounded-lg bg-text py-2 font-semibold text-bg disabled:opacity-60">
-            {busy ? "…" : "Loo konto"}
+          <button onClick={submit} disabled={busy} className="btn-primary flex-1">
+            {busy ? "Loon kontot…" : "Loo konto"}
           </button>
-          <button onClick={() => setOpen(false)} className="rounded-lg border border-border px-4">
+          <button onClick={() => setOpen(false)} className="btn-secondary">
             Tühista
           </button>
         </div>

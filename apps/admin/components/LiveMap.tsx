@@ -28,8 +28,9 @@ export function LiveMap({ points: initial }: { points: Point[] }) {
 
   if (points.length === 0) {
     return (
-      <div className="flex h-[420px] items-center justify-center text-muted">
-        Hetkel pole keegi vahetuses.
+      <div className="flex h-[420px] flex-col items-center justify-center px-6 text-center">
+        <h2 className="section-title">Hetkel pole keegi vahetuses</h2>
+        <p className="mt-1 max-w-md text-sm text-muted">Töötaja ilmub kaardile pärast vahetuse alustamist ja asukoha kinnitamist.</p>
       </div>
     );
   }

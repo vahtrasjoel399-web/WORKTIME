@@ -8,7 +8,7 @@ import { isoWeek, parseYmd, weekRange } from "@/lib/week";
 import { AddWorker } from "@/components/AddWorker";
 import { PendingWorkers } from "@/components/PendingWorkers";
 import { EmployeeDirectory } from "@/components/EmployeeDirectory";
-import { Icon } from "@/components/Icon";
+import { EmptyState, MetricStrip, PageHeader } from "@/components/ui";
 import type { Profile, Site } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -99,44 +99,42 @@ export default async function WorkersPage() {
   const weekEarnedRecord = Object.fromEntries(weekEarned);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="font-display text-3xl font-bold">Töötajad</h1>
-          <p className="mt-1 text-sm text-muted">
-            {list.length} töötajat · <span className="text-live">{onShift} vahetuses</span>
-          </p>
-          <p className="mt-1 text-sm text-muted">
-            Nädal {isoWeek(parseYmd(week.from))} ({week.from.slice(8)}.{week.from.slice(5, 7)}–
-            {week.to.slice(8)}.{week.to.slice(5, 7)}) · {hours1(weekHours)} h ·{" "}
-            <span className="font-semibold text-signal">{money(payroll, currency)}</span> palgafond
-          </p>
-          {company?.join_code && (
-            <p className="mt-2 text-sm text-muted">
-              Ettevõtte kood töötajatele:{" "}
-              <span className="tabular font-semibold tracking-widest text-signal">{company.join_code}</span>
-            </p>
-          )}
-        </div>
-        <div className="grid grid-cols-2 items-center gap-2 sm:flex">
+    <div className="page-stack">
+      <PageHeader
+        eyebrow={company?.name ?? "Tööjõu ülevaade"}
+        title="Töötajad"
+        description={<>Nädal {isoWeek(parseYmd(week.from))} · {week.from.slice(8)}.{week.from.slice(5, 7)}–{week.to.slice(8)}.{week.to.slice(5, 7)}</>}
+        actions={
+          <>
           <Link
             href="/reports"
-            className="flex items-center justify-center rounded-lg border border-border px-3 py-2 text-center text-sm font-medium hover:border-signal sm:px-4"
+            className="btn-secondary"
           >
-            Nädala aruanne →
+            Nädala aruanne
           </Link>
           <AddWorker sites={siteList} companyId={me.company_id} actorId={me.id} />
+          </>
+        }
+      />
+
+      <MetricStrip items={[
+        { label: "Töötajaid", value: list.length, detail: `${list.filter((worker) => worker.is_active).length} aktiivset` },
+        { label: "Praegu tööl", value: onShift, detail: onShift === 1 ? "1 avatud vahetus" : `${onShift} avatud vahetust`, tone: "live" },
+        { label: "Nädala tööaeg", value: `${hours1(weekHours)} h`, detail: `Nädal ${isoWeek(parseYmd(week.from))}` },
+        { label: "Nädala palgafond", value: money(payroll, currency), detail: "Bruto, hinnanguline", tone: "signal" },
+      ]} />
+
+      {company?.join_code && (
+        <div className="flex flex-col gap-2 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+          <span><span className="font-medium">Liitumiskood</span><span className="text-muted"> · jaga seda töötajaga konto loomiseks</span></span>
+          <span className="tabular select-all font-semibold tracking-[0.18em] text-primary">{company.join_code}</span>
         </div>
-      </div>
+      )}
 
       <PendingWorkers pending={pending} />
 
       {list.length === 0 && (
-        <div className="rounded-2xl border border-dashed border-border bg-surface px-6 py-12 text-center">
-          <Icon name="empty" className="mx-auto mb-4 h-10 w-10 text-muted" />
-          <h2 className="font-display text-lg font-semibold">Töötajaid pole veel</h2>
-          <p className="mx-auto mt-1 max-w-sm text-sm text-muted">Lisa esimene töötaja või jaga ettevõtte koodi, et tiim saaks liituda.</p>
-        </div>
+        <EmptyState title="Töötajaid pole veel" description="Lisa esimene töötaja või jaga ettevõtte liitumiskoodi, et tiim saaks liituda." />
       )}
 
       {list.length > 0 && (

@@ -81,14 +81,14 @@ export function EmployeeDocuments({
   }
 
   return (
-    <section className="space-y-4 rounded-2xl border border-border bg-surface p-5">
+    <section className="panel-pad space-y-4">
       <div>
         <h3 className="font-display text-lg font-semibold">Dokumendid</h3>
         <p className="mt-1 text-xs text-muted">Privaatsed failid · ligipääs ainult ettevõtte administraatoril</p>
       </div>
 
       <div className="grid grid-cols-2 gap-2">
-        <label className="cursor-pointer rounded-lg bg-text px-3 py-2 text-center text-sm font-semibold text-bg">
+        <label className="btn-primary cursor-pointer">
           {uploading === "cv" ? "Laadin…" : cvExists ? "Asenda CV" : "Lisa CV"}
           <input
             type="file"
@@ -101,7 +101,7 @@ export function EmployeeDocuments({
             }}
           />
         </label>
-        <label className="cursor-pointer rounded-lg border border-border px-3 py-2 text-center text-sm font-medium hover:border-signal">
+        <label className="btn-secondary cursor-pointer">
           {uploading === "other" ? "Laadin…" : "Lisa dokument"}
           <input
             type="file"

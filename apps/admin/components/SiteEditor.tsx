@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 import type { Site } from "@/lib/types";
 import { useToast } from "./ToastProvider";
+import { EmptyState, StatusBadge } from "./ui";
 
 const empty = { name: "", address: "", description: "", status: "active" as Site["status"], lat: "", lng: "", radius_m: "150" };
 
@@ -115,41 +116,41 @@ export function SiteEditor({ sites, assignmentCounts }: { sites: Site[]; assignm
     });
   }
 
-  const input = "w-full rounded-lg border border-border bg-bg px-3 py-2 outline-none focus:border-signal";
+  const input = "control bg-bg";
 
   return (
     <div className="grid gap-6 lg:grid-cols-3">
-      <div className="space-y-3 rounded-2xl border border-border bg-surface p-5 lg:col-span-1">
-        <h3 className="font-display font-semibold">{editing ? "Muuda objekti" : "Lisa objekt"}</h3>
-        <input className={input} placeholder="Nimi" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-        <input className={input} placeholder="Aadress" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
-        <textarea className={`${input} min-h-24 resize-y`} placeholder="Kirjeldus (valikuline)" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-        <select className={input} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as Site["status"] })}>
+      <div className="panel-pad space-y-4 self-start lg:sticky lg:top-24 lg:col-span-1">
+        <div><h2 className="section-title">{editing ? "Muuda objekti" : "Lisa objekt"}</h2><p className="mt-1 text-sm text-muted">Objekti nimi ja aadress kuvatakse vahetustes ning aruannetes.</p></div>
+        <label className="block"><span className="field-label">Objekti nimi</span><input className={input} placeholder="Näiteks Kesklinna büroo" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
+        <label className="block"><span className="field-label">Aadress</span><input className={input} placeholder="Tänav, linn" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} /></label>
+        <label className="block"><span className="field-label">Kirjeldus <span className="font-normal text-muted">(valikuline)</span></span><textarea className={`${input} min-h-24 resize-y`} placeholder="Ligipääs, kontakt või muu oluline info" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></label>
+        <label className="block"><span className="field-label">Staatus</span><select className={input} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as Site["status"] })}>
           <option value="active">Aktiivne</option>
           <option value="inactive">Mitteaktiivne</option>
-        </select>
+        </select></label>
         <button
           onClick={locate}
           disabled={locating}
-          className="w-full rounded-lg border border-border py-2 text-sm font-medium hover:border-signal disabled:opacity-60"
+          className="btn-secondary w-full"
         >
           {locating ? "Otsin…" : "Leia koordinaadid aadressi järgi"}
         </button>
         {locateErr && <p className="text-sm text-alert">{locateErr}</p>}
-        <div className="flex gap-2">
-          <input className={input} placeholder="Laius (lat)" value={form.lat} onChange={(e) => setForm({ ...form, lat: e.target.value })} />
-          <input className={input} placeholder="Pikkus (lng)" value={form.lng} onChange={(e) => setForm({ ...form, lng: e.target.value })} />
+        <div className="grid grid-cols-2 gap-2">
+          <label><span className="field-label">Laiuskraad</span><input className={input} inputMode="decimal" placeholder="59.437" value={form.lat} onChange={(e) => setForm({ ...form, lat: e.target.value })} /></label>
+          <label><span className="field-label">Pikkuskraad</span><input className={input} inputMode="decimal" placeholder="24.745" value={form.lng} onChange={(e) => setForm({ ...form, lng: e.target.value })} /></label>
         </div>
-        <input className={input} placeholder="Raadius (m)" value={form.radius_m} onChange={(e) => setForm({ ...form, radius_m: e.target.value })} />
+        <label className="block"><span className="field-label">Tööpiirkonna raadius</span><div className="relative"><input className={`${input} pr-10`} inputMode="numeric" value={form.radius_m} onChange={(e) => setForm({ ...form, radius_m: e.target.value })} /><span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted">m</span></div></label>
         <p className="text-xs text-muted">
           Koordinaadid on vajalikud: nende järgi tuvastab süsteem ise, millisel objektil töötaja vahetust alustas.
         </p>
         <div className="flex gap-2">
-          <button onClick={save} disabled={busy} className="flex-1 rounded-lg bg-text py-2 font-semibold text-bg disabled:opacity-60">
+          <button onClick={save} disabled={busy} className="btn-primary flex-1">
             {busy ? "Salvestan…" : editing ? "Salvesta" : "Lisa"}
           </button>
           {editing && (
-            <button onClick={() => { setEditing(null); setForm(empty); }} className="rounded-lg border border-border px-4">
+            <button onClick={() => { setEditing(null); setForm(empty); }} className="btn-secondary">
               Tühista
             </button>
           )}
@@ -158,14 +159,12 @@ export function SiteEditor({ sites, assignmentCounts }: { sites: Site[]; assignm
 
       <div className="space-y-2 lg:col-span-2">
         {sites.map((s) => (
-          <div key={s.id} className="rounded-2xl border border-border bg-surface p-4">
+          <div key={s.id} className="panel p-4 transition-colors hover:border-border-strong">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <Link href={`/sites/${s.id}`} className="font-medium hover:text-signal">{s.name}</Link>
-                  <span className={`rounded-full px-2 py-0.5 text-xs ${s.status === "active" ? "bg-live/10 text-live" : "bg-bg text-muted"}`}>
-                    {s.status === "active" ? "Aktiivne" : "Mitteaktiivne"}
-                  </span>
+                  <StatusBadge tone={s.status === "active" ? "live" : "neutral"}>{s.status === "active" ? "Aktiivne" : "Mitteaktiivne"}</StatusBadge>
                 </div>
                 <div className="text-sm text-muted">
                   {s.address ?? "Aadress puudub"} · {assignmentCounts[s.id] ?? 0} töötajat
@@ -173,18 +172,18 @@ export function SiteEditor({ sites, assignmentCounts }: { sites: Site[]; assignm
                 {s.description && <p className="mt-2 line-clamp-2 text-sm text-muted">{s.description}</p>}
               </div>
               <div className="flex shrink-0 flex-wrap gap-2">
-                <Link href={`/sites/${s.id}`} className="rounded-lg border border-border px-3 py-2 text-sm font-medium hover:border-signal">Ava</Link>
-                <button onClick={() => edit(s)} disabled={busy} className="rounded-lg border border-border px-3 py-2 text-sm text-muted hover:border-signal disabled:opacity-60">
+                <Link href={`/sites/${s.id}`} className="btn-secondary">Ava</Link>
+                <button onClick={() => edit(s)} disabled={busy} className="btn-quiet">
                   Muuda
                 </button>
-                <button onClick={() => toggleStatus(s)} disabled={busy} className="rounded-lg border border-border px-3 py-2 text-sm text-muted hover:border-signal disabled:opacity-60">
+                <button onClick={() => toggleStatus(s)} disabled={busy} className="btn-quiet">
                   {s.status === "active" ? "Deaktiveeri" : "Aktiveeri"}
                 </button>
               </div>
             </div>
           </div>
         ))}
-        {sites.length === 0 && <p className="text-muted">Objekte pole veel lisatud.</p>}
+        {sites.length === 0 && <EmptyState title="Objekte pole veel" description="Lisa esimene objekt, et määrata töötajaid ja tuvastada vahetuste asukohti." icon="site" />}
       </div>
     </div>
   );

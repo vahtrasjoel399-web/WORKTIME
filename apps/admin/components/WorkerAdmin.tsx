@@ -62,7 +62,7 @@ export function WorkerAdmin({ worker }: { worker: Profile }) {
   }
 
   return (
-    <div className="space-y-4 rounded-2xl border border-border bg-surface p-5">
+    <div className="panel-pad space-y-4">
       <h3 className="font-display text-lg font-semibold">Haldus</h3>
 
       <label className="block">
@@ -70,7 +70,7 @@ export function WorkerAdmin({ worker }: { worker: Profile }) {
         <select
           value={pricingType}
           onChange={(event) => setPricingType(event.target.value as PricingType)}
-          className="mt-1 w-full rounded-lg border border-border bg-bg px-3 py-2 outline-none focus:border-signal"
+          className="control mt-1 bg-bg"
         >
           <option value="hourly">Tunnipõhine</option>
           <option value="area">m² põhine</option>
@@ -81,7 +81,7 @@ export function WorkerAdmin({ worker }: { worker: Profile }) {
       {pricingType === "quantity" && (
         <label className="block">
           <span className="text-sm text-muted">Ühik</span>
-          <input value={unit} onChange={(event) => setUnit(event.target.value)} maxLength={24} placeholder="nt tk, kompl, kast, objekt" className="mt-1 w-full rounded-lg border border-border bg-bg px-3 py-2 outline-none focus:border-signal" />
+          <input value={unit} onChange={(event) => setUnit(event.target.value)} maxLength={24} placeholder="nt tk, kompl, kast, objekt" className="control mt-1 bg-bg" />
         </label>
       )}
 
@@ -92,12 +92,12 @@ export function WorkerAdmin({ worker }: { worker: Profile }) {
           onChange={(e) => setRate(e.target.value)}
           inputMode="decimal"
           placeholder={pricingType === "hourly" ? "määramata → töötaja isiklik hinnang" : "0.00"}
-          className="mt-1 w-full rounded-lg border border-border bg-bg px-3 py-2 outline-none focus:border-signal"
+          className="control mt-1 bg-bg"
         />
       </label>
 
-      <button onClick={save} className="w-full rounded-lg bg-text py-2 font-semibold text-bg">
-        {saved ? "Salvestatud ✓" : "Salvesta"}
+      <button onClick={save} className="btn-primary w-full">
+        {saved ? "Salvestatud" : "Salvesta tasustamine"}
       </button>
 
       <div className="border-t border-border pt-4">
@@ -105,13 +105,13 @@ export function WorkerAdmin({ worker }: { worker: Profile }) {
         <div className="flex gap-2">
           <button
             onClick={exportData}
-            className="flex-1 rounded-lg border border-border py-2 text-sm hover:border-signal"
+            className="btn-secondary flex-1"
           >
             Ekspordi andmed
           </button>
           <button
             onClick={() => setConfirming(true)}
-            className="flex-1 rounded-lg border border-alert py-2 text-sm text-alert hover:bg-alert/10"
+            className="btn-danger flex-1"
           >
             Kustuta töötaja
           </button>

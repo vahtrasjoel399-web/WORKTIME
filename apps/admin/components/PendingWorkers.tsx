@@ -40,14 +40,14 @@ export function PendingWorkers({ pending }: { pending: Profile[] }) {
   }
 
   return (
-    <div className="rounded-2xl border border-signal/40 bg-signal/10 p-5">
+    <section className="rounded-xl border border-signal/35 bg-signal/5 p-4 sm:p-5">
       <h2 className="mb-1 font-display text-lg font-semibold text-signal">
         Uued taotlused ({pending.length})
       </h2>
       <p className="mb-4 text-sm text-muted">Töötajad registreerusid ettevõtte koodiga ja ootavad kinnitust.</p>
       <div className="space-y-2">
         {pending.map((w) => (
-          <div key={w.id} className="flex items-center justify-between rounded-xl border border-border bg-surface p-3">
+          <div key={w.id} className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <div className="font-medium">
                 {w.first_name} {w.last_name}
@@ -58,14 +58,14 @@ export function PendingWorkers({ pending }: { pending: Profile[] }) {
               <button
                 onClick={() => accept(w.id)}
                 disabled={busy === w.id}
-                className="rounded-lg bg-live px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                className="btn bg-live text-white hover:bg-live/90"
               >
                 Võta vastu
               </button>
               <button
                 onClick={() => setRejecting(w)}
                 disabled={busy === w.id}
-                className="rounded-lg border border-alert px-4 py-2 text-sm text-alert hover:bg-alert/10 disabled:opacity-60"
+                className="btn-danger"
               >
                 Lükka tagasi
               </button>
@@ -74,6 +74,6 @@ export function PendingWorkers({ pending }: { pending: Profile[] }) {
         ))}
       </div>
       <ConfirmDialog open={!!rejecting} title="Lükka taotlus tagasi?" body={`${rejecting?.first_name ?? ""} konto eemaldatakse täielikult.`} confirmLabel="Lükka tagasi" busy={!!busy} onConfirm={() => rejecting && reject(rejecting.id)} onCancel={() => setRejecting(null)} />
-    </div>
+    </section>
   );
 }

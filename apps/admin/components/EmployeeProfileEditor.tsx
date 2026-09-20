@@ -25,7 +25,7 @@ export function EmployeeProfileEditor({ worker, photoUrl }: { worker: Profile; p
   const [photoFailed, setPhotoFailed] = useState(false);
 
   const initials = `${worker.first_name.charAt(0)}${worker.last_name.charAt(0)}`.toUpperCase() || "?";
-  const inputClass = "mt-1 w-full rounded-lg border border-border bg-bg px-3 py-2 outline-none focus:border-signal";
+  const inputClass = "control mt-1 bg-bg";
 
   async function save() {
     if (!form.first_name.trim() || !form.last_name.trim()) return toast("Nimi on kohustuslik.", "error");
@@ -77,7 +77,7 @@ export function EmployeeProfileEditor({ worker, photoUrl }: { worker: Profile; p
   }
 
   return (
-    <section className="space-y-4 rounded-2xl border border-border bg-surface p-5">
+    <section className="panel-pad space-y-4">
       <div className="flex items-center justify-between gap-3">
         <h3 className="font-display text-lg font-semibold">Isikuandmed</h3>
         <span className={`rounded-full px-2.5 py-1 text-xs ${form.is_active ? "bg-live/10 text-live" : "bg-bg text-muted"}`}>
@@ -90,11 +90,11 @@ export function EmployeeProfileEditor({ worker, photoUrl }: { worker: Profile; p
           <img
             src={photoUrl}
             alt={`${worker.first_name} ${worker.last_name}`}
-            className="h-20 w-20 rounded-2xl border border-border object-cover"
+            className="h-20 w-20 rounded-xl border border-border object-cover"
             onError={() => setPhotoFailed(true)}
           />
         ) : (
-          <span className="flex h-20 w-20 items-center justify-center rounded-2xl border border-border bg-bg font-display text-xl font-bold text-muted">
+          <span className="flex h-20 w-20 items-center justify-center rounded-xl border border-border bg-bg font-display text-xl font-bold text-muted">
             {initials}
           </span>
         )}
@@ -142,7 +142,7 @@ export function EmployeeProfileEditor({ worker, photoUrl }: { worker: Profile; p
         <input type="checkbox" checked={form.is_active} onChange={(event) => setForm({ ...form, is_active: event.target.checked })} />
         <span className="text-sm">Aktiivne töötaja</span>
       </label>
-      <button onClick={save} disabled={saving} className="w-full rounded-lg bg-text py-2.5 font-semibold text-bg disabled:opacity-60">
+      <button onClick={save} disabled={saving} className="btn-primary w-full">
         {saving ? "Salvestan…" : "Salvesta isikuandmed"}
       </button>
     </section>

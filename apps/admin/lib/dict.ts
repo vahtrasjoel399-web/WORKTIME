@@ -55,7 +55,7 @@ export const dict: Dict = {
   openMobileApp: { et: "Ava mobiilirakendus", ru: "Открыть мобильное приложение", en: "Open mobile app" },
   mobileLoginHint: { et: "Logi sisse sama e-posti ja äsja loodud parooliga.", ru: "Войдите с той же почтой и только что созданным паролем.", en: "Sign in with the same email and the password you just created." },
 
-  companyCreated: { et: "Ettevõte loodud 🎉", ru: "Компания создана 🎉", en: "Company created 🎉" },
+  companyCreated: { et: "Ettevõte on loodud", ru: "Компания создана", en: "Company created" },
   shareCode: { et: "Jaga seda koodi töötajatega — nad sisestavad selle registreerumisel.", ru: "Дайте этот код работникам — они введут его при регистрации.", en: "Share this code with workers — they enter it when registering." },
   openPanel: { et: "Ava töölaud →", ru: "Открыть панель →", en: "Open dashboard →" },
 
