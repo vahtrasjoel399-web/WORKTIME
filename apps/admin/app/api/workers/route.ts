@@ -92,19 +92,52 @@ export async function POST(req: NextRequest) {
     return new NextResponse(profErr.message, { status: 500 });
   }
 
+  let initialAssignmentId: string | null = null;
   if (initialSiteId) {
-    const { error: assignmentError } = await service.from("employee_assignments").insert({
-      company_id: me.company_id,
-      employee_id: created.user.id,
-      site_id: initialSiteId,
-      start_date: tallinnDate(),
-      created_by: user.id,
-    });
+    const { data: assignment, error: assignmentError } = await service
+      .from("employee_assignments")
+      .insert({
+        company_id: me.company_id,
+        employee_id: created.user.id,
+        site_id: initialSiteId,
+        start_date: tallinnDate(),
+        created_by: user.id,
+      })
+      .select("id")
+      .single();
     if (assignmentError) {
       await service.auth.admin.deleteUser(created.user.id);
       return new NextResponse(assignmentError.message, { status: 500 });
     }
+    initialAssignmentId = assignment.id;
   }
+
+  const auditRows = [
+    {
+      company_id: me.company_id,
+      actor_id: user.id,
+      action: "employee.created",
+      target_type: "employee",
+      target_id: created.user.id,
+      metadata: {},
+    },
+    ...(initialSiteId
+      ? [{
+          company_id: me.company_id,
+          actor_id: user.id,
+          action: "employee.assigned_to_object",
+          target_type: "employee_assignment",
+          target_id: initialAssignmentId,
+          metadata: { employee_id: created.user.id, site_id: initialSiteId },
+        }]
+      : []),
+  ];
+  const { error: auditError } = await service.from("audit_logs").insert(auditRows);
+  if (auditError) {
+    await service.auth.admin.deleteUser(created.user.id);
+    return new NextResponse("Could not record employee creation", { status: 500 });
+  }
+
   return NextResponse.json({ id: created.user.id, invited: true });
 }
 

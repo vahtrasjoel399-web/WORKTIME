@@ -3,6 +3,13 @@
 Running log. Newest first. Each entry: **what** was decided and **why**, so future changes don't
 re-litigate settled ground.
 
+## D-024 — Workforce audit events are database-enforced and metadata-minimal
+The existing append-only `audit_logs` table records employee, document, object and assignment
+changes. Database triggers cover tenant-scoped client writes, while the trusted invitation route
+supplies the authenticated admin actor for service-role employee creation. Events store identifiers
+and action categories only; names, contact details, filenames and document contents are excluded.
+Authenticated assignment writes are restricted to the audited atomic assignment RPC.
+
 ## D-023 — Worker invitations terminate in a server-verified password setup flow
 Admins invite workers through Supabase Auth; WORKTIME never creates, stores or displays a worker
 password. Invite emails carry a one-time token hash to `/auth/confirm`, where it is verified into
