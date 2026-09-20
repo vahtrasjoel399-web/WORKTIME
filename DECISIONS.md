@@ -3,6 +3,13 @@
 Running log. Newest first. Each entry: **what** was decided and **why**, so future changes don't
 re-litigate settled ground.
 
+## D-025 — Privacy lifecycle covers files, exports and exact location data
+Worker erasure removes private Storage objects before deleting the Auth account and cascading
+database rows. Exports include assignment history, document metadata and short-lived download
+links. Individual documents can be permanently deleted with tenant authorization and audit. Exact
+GPS coordinates, accuracy and resolved addresses are purged after 24 months by scheduled backend
+maintenance; shift and payroll history remains available without the exact location point.
+
 ## D-024 — Workforce audit events are database-enforced and metadata-minimal
 The existing append-only `audit_logs` table records employee, document, object and assignment
 changes. Database triggers cover tenant-scoped client writes, while the trusted invitation route

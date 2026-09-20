@@ -25,6 +25,7 @@ export const dict: Dict = {
   createWorker: { et: "Loo töötaja konto", ru: "Создать аккаунт работника", en: "Create worker account" },
   createCompany: { et: "Loo ettevõte", ru: "Создать компанию", en: "Create company" },
   forgotPassword: { et: "Unustasid parooli?", ru: "Забыли пароль?", en: "Forgot password?" },
+  privacyPolicy: { et: "Privaatsusteade", ru: "Политика конфиденциальности", en: "Privacy notice" },
 
   // hints & errors
   autoRole: { et: "Süsteem tuvastab ise: töötaja või tööandja.", ru: "Система сама определит: работник или начальник.", en: "The system detects your role automatically." },

@@ -81,7 +81,8 @@ DECISIONS.md     Running log of technical decisions
    supabase functions deploy gdpr-worker
    ```
 
-   Then schedule the sweeper (Dashboard → Database → Cron, or `pg_cron`):
+   Then schedule the sweeper (Dashboard → Database → Cron, or `pg_cron`). The
+   same job flags stale shifts and enforces the 24-month precise-GPS retention:
 
    ```sql
    select cron.schedule('close-stale-shifts', '*/15 * * * *',
@@ -90,6 +91,9 @@ DECISIONS.md     Running log of technical decisions
           headers := jsonb_build_object('Authorization', 'Bearer ' || current_setting('app.cron_secret'))
         ) $$);
    ```
+
+6. Publish `/privacy` as the mobile-store privacy-policy URL. Replace or extend
+   the controller/contact wording if your company requires a named privacy contact.
 
 ### Creating the first company + admin
 

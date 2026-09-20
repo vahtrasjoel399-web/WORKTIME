@@ -28,6 +28,8 @@ export function EmployeeDocuments({
   const toast = useToast();
   const supabase = supabaseBrowser();
   const [uploading, setUploading] = useState<"cv" | "other" | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
   const cvExists = documents.some((document) => document.document_type === "cv");
 
   async function upload(file: File | undefined, documentType: "cv" | "other") {
@@ -63,6 +65,18 @@ export function EmployeeDocuments({
 
     setUploading(null);
     toast(documentType === "cv" ? (cvExists ? "CV uus versioon lisati." : "CV lisati.") : "Dokument lisati.");
+    router.refresh();
+  }
+
+  async function deleteDocument(documentId: string) {
+    setDeleting(documentId);
+    const response = await fetch(`/api/workers/${worker.id}/documents/${documentId}`, {
+      method: "DELETE",
+    });
+    setDeleting(null);
+    if (!response.ok) return toast("Dokumendi kustutamine ebaõnnestus.", "error");
+    setConfirmingDelete(null);
+    toast("Dokument kustutati jäädavalt.");
     router.refresh();
   }
 
@@ -119,13 +133,25 @@ export function EmployeeDocuments({
                 {document.size_bytes != null && ` · ${fileSize(document.size_bytes)}`}
               </div>
             </div>
-            {document.signed_url ? (
-              <a href={document.signed_url} target="_blank" rel="noreferrer" className="shrink-0 rounded-lg border border-border px-3 py-2 text-xs font-medium hover:border-signal">
-                Ava
-              </a>
-            ) : (
-              <span className="shrink-0 text-xs text-alert">Pole saadaval</span>
-            )}
+            <div className="flex shrink-0 items-center gap-2">
+              {document.signed_url ? (
+                <a href={document.signed_url} target="_blank" rel="noreferrer" className="rounded-lg border border-border px-3 py-2 text-xs font-medium hover:border-signal">
+                  Ava
+                </a>
+              ) : (
+                <span className="text-xs text-alert">Pole saadaval</span>
+              )}
+              {confirmingDelete === document.id ? (
+                <>
+                  <button onClick={() => setConfirmingDelete(null)} disabled={deleting !== null} className="rounded-lg border border-border px-2 py-2 text-xs">Tühista</button>
+                  <button onClick={() => void deleteDocument(document.id)} disabled={deleting !== null} className="rounded-lg border border-alert px-2 py-2 text-xs text-alert disabled:opacity-60">
+                    {deleting === document.id ? "…" : "Kinnita"}
+                  </button>
+                </>
+              ) : (
+                <button onClick={() => setConfirmingDelete(document.id)} disabled={deleting !== null} className="rounded-lg px-2 py-2 text-xs text-alert disabled:opacity-60">Kustuta</button>
+              )}
+            </div>
           </div>
         ))}
       </div>

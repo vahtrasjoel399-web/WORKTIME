@@ -29,9 +29,10 @@ export async function proxy(req: NextRequest) {
   } = await supabase.auth.getUser();
 
   const isLogin = req.nextUrl.pathname.startsWith("/login");
+  const isPrivacy = req.nextUrl.pathname.startsWith("/privacy");
   const isAuthCallback = req.nextUrl.pathname.startsWith("/auth/callback");
   const isAuthConfirm = req.nextUrl.pathname.startsWith("/auth/confirm");
-  if (!user && !isLogin && !isAuthCallback && !isAuthConfirm) {
+  if (!user && !isLogin && !isPrivacy && !isAuthCallback && !isAuthConfirm) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
   if (user && isLogin) {

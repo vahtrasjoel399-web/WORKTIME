@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 import { useI18n, LangSwitcher } from "@/components/I18nProvider";
 import { emailSuggestion, isValidEmail, normalizeEmail } from "@/lib/email";
@@ -184,6 +185,7 @@ export default function Login() {
             <button disabled={busy} className="w-full rounded-lg bg-text py-3 font-semibold text-bg disabled:opacity-60">{busy ? "…" : t("createCompany")}</button>
           </form>
         )}
+        <Link href="/privacy" className="block text-center text-xs text-muted hover:text-signal">{t("privacyPolicy")}</Link>
       </div>
     </div>
   );
