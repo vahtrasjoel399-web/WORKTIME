@@ -34,6 +34,10 @@ export async function flush(): Promise<{ pushed: number }> {
         end_accuracy_m: r.end_accuracy_m,
         end_address: r.end_address,
         break_seconds: r.break_seconds,
+        pricing_type: r.pricing_type,
+        pricing_rate: r.pricing_rate,
+        quantity: r.quantity,
+        unit: r.unit,
         status: r.status,
         source: "app" as const,
       };
@@ -51,6 +55,7 @@ export async function flush(): Promise<{ pushed: number }> {
             end_accuracy_m: r.end_accuracy_m,
             end_address: r.end_address,
             break_seconds: r.break_seconds,
+            quantity: r.quantity,
             status: r.status,
           })
           .eq("id", r.remote_id);

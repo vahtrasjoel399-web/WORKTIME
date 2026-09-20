@@ -20,6 +20,11 @@ export interface LocalShift {
   end_accuracy_m: number | null;
   end_address: string | null;
   break_seconds: number;
+  pricing_type: "hourly" | "area" | "quantity";
+  pricing_rate: number | null;
+  quantity: number | null;
+  unit: string | null;
+  calculated_total: number | null;
   status: "open" | "closed";
   synced: number; // 0 = pending push, 1 = in sync with server
 }
@@ -62,6 +67,18 @@ export async function getDb(): Promise<SQLite.SQLiteDatabase> {
     );
     create index if not exists idx_shifts_status on shifts_local(status);
   `);
+  const columns = await db.getAllAsync<{ name: string }>(`pragma table_info(shifts_local)`);
+  const names = new Set(columns.map((column) => column.name));
+  const additions = [
+    ["pricing_type", "text not null default 'hourly'"],
+    ["pricing_rate", "real"],
+    ["quantity", "real"],
+    ["unit", "text"],
+    ["calculated_total", "real"],
+  ] as const;
+  for (const [name, definition] of additions) {
+    if (!names.has(name)) await db.execAsync(`alter table shifts_local add column ${name} ${definition}`);
+  }
   _db = db;
   return db;
 }
@@ -95,7 +112,7 @@ export async function getOpenBreak(shiftLocalId: string): Promise<LocalBreak | n
   );
 }
 
-export async function startShift(input: Omit<LocalShift, "local_id" | "remote_id" | "synced" | "status" | "ended_at" | "end_lat" | "end_lng" | "end_accuracy_m" | "end_address">): Promise<LocalShift> {
+export async function startShift(input: Omit<LocalShift, "local_id" | "remote_id" | "synced" | "status" | "ended_at" | "end_lat" | "end_lng" | "end_accuracy_m" | "end_address" | "quantity" | "calculated_total">): Promise<LocalShift> {
   const db = await getDb();
   const row: LocalShift = {
     local_id: uuid(),
@@ -107,16 +124,20 @@ export async function startShift(input: Omit<LocalShift, "local_id" | "remote_id
     end_address: null,
     status: "open",
     synced: 0,
+    quantity: null,
+    calculated_total: null,
     ...input,
   };
   await db.runAsync(
     `insert into shifts_local
       (local_id, remote_id, user_id, company_id, site_id, started_at,
-       start_lat, start_lng, start_accuracy_m, start_address, break_seconds, status, synced)
-     values (?,?,?,?,?,?,?,?,?,?,?, 'open', 0)`,
+       start_lat, start_lng, start_accuracy_m, start_address, break_seconds,
+       pricing_type, pricing_rate, quantity, unit, calculated_total, status, synced)
+     values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'open', 0)`,
     [
       row.local_id, row.remote_id, row.user_id, row.company_id, row.site_id, row.started_at,
       row.start_lat, row.start_lng, row.start_accuracy_m, row.start_address, row.break_seconds,
+      row.pricing_type, row.pricing_rate, row.quantity, row.unit, row.calculated_total,
     ],
   );
   return row;
@@ -124,15 +145,15 @@ export async function startShift(input: Omit<LocalShift, "local_id" | "remote_id
 
 export async function endShift(
   localId: string,
-  end: { ended_at: string; end_lat: number | null; end_lng: number | null; end_accuracy_m: number | null; end_address: string | null; break_seconds: number },
+  end: { ended_at: string; end_lat: number | null; end_lng: number | null; end_accuracy_m: number | null; end_address: string | null; break_seconds: number; quantity: number | null; calculated_total: number | null },
 ): Promise<void> {
   const db = await getDb();
   await db.runAsync(
     `update shifts_local
         set ended_at=?, end_lat=?, end_lng=?, end_accuracy_m=?, end_address=?,
-            break_seconds=?, status='closed', synced=0
+            break_seconds=?, quantity=?, calculated_total=?, status='closed', synced=0
       where local_id=?`,
-    [end.ended_at, end.end_lat, end.end_lng, end.end_accuracy_m, end.end_address, end.break_seconds, localId],
+    [end.ended_at, end.end_lat, end.end_lng, end.end_accuracy_m, end.end_address, end.break_seconds, end.quantity, end.calculated_total, localId],
   );
 }
 
@@ -203,8 +224,8 @@ export async function upsertFromServer(rows: Partial<LocalShift>[]): Promise<voi
     if (existing && existing.synced === 0) continue; // don't clobber pending local edits
     if (existing) {
       await db.runAsync(
-        `update shifts_local set site_id=?, started_at=?, ended_at=?, break_seconds=?, status=?, synced=1 where remote_id=?`,
-        [r.site_id ?? null, r.started_at!, r.ended_at ?? null, r.break_seconds ?? 0, r.status!, r.remote_id],
+        `update shifts_local set site_id=?, started_at=?, ended_at=?, break_seconds=?, pricing_type=?, pricing_rate=?, quantity=?, unit=?, calculated_total=?, status=?, synced=1 where remote_id=?`,
+        [r.site_id ?? null, r.started_at!, r.ended_at ?? null, r.break_seconds ?? 0, r.pricing_type ?? "hourly", r.pricing_rate ?? null, r.quantity ?? null, r.unit ?? null, r.calculated_total ?? null, r.status!, r.remote_id],
       );
     } else {
       await db.runAsync(
@@ -212,13 +233,13 @@ export async function upsertFromServer(rows: Partial<LocalShift>[]): Promise<voi
           (local_id, remote_id, user_id, company_id, site_id, started_at,
            start_lat,start_lng,start_accuracy_m,start_address,
            ended_at,end_lat,end_lng,end_accuracy_m,end_address,
-           break_seconds, status, synced)
-         values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 1)`,
+           break_seconds, pricing_type, pricing_rate, quantity, unit, calculated_total, status, synced)
+         values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 1)`,
         [
           uuid(), r.remote_id, r.user_id!, r.company_id!, r.site_id ?? null, r.started_at!,
           r.start_lat ?? null, r.start_lng ?? null, r.start_accuracy_m ?? null, r.start_address ?? null,
           r.ended_at ?? null, r.end_lat ?? null, r.end_lng ?? null, r.end_accuracy_m ?? null, r.end_address ?? null,
-          r.break_seconds ?? 0, r.status ?? "closed",
+          r.break_seconds ?? 0, r.pricing_type ?? "hourly", r.pricing_rate ?? null, r.quantity ?? null, r.unit ?? null, r.calculated_total ?? null, r.status ?? "closed",
         ],
       );
     }

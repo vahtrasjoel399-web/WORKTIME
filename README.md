@@ -11,6 +11,10 @@ Pay runs **weekly**: every default period is the running ISO week (Mon–Sun), t
 report show what each worker earned in it, and any longer range is also broken down week by week
 (D-015).
 
+Work can be priced hourly, by completed square metre, or by a custom quantity unit. Time/GPS
+tracking remains active for every method; Postgres snapshots the applicable rate and calculates
+the final work-entry amount so mixed-pricing reports remain historically stable (D-026).
+
 ```
 apps/
   mobile/        Expo + expo-router + TypeScript worker app (Android + iOS)

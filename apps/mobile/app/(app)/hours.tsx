@@ -10,7 +10,7 @@ import { useSession } from "@/state/session";
 import { getMonthShifts, type LocalShift } from "@/lib/db";
 import { pullMonth } from "@/lib/sync";
 import { workedSeconds, hoursDecimal, timeOfDay, hms } from "@/lib/time";
-import { resolveRate, earningsFor } from "@/lib/earnings";
+import { resolveRate, savedShiftTotal } from "@/lib/earnings";
 import { font, radius, space } from "@/theme/tokens";
 import { t, i18n } from "@/i18n";
 
@@ -46,7 +46,10 @@ export default function Hours() {
     () => shifts.reduce((sum, s) => sum + workedSeconds(s.started_at, s.ended_at, s.break_seconds), 0),
     [shifts],
   );
-  const totalEarnings = earningsFor(totalSeconds, rate);
+  const totalEarnings = useMemo(
+    () => shifts.reduce((sum, shift) => sum + savedShiftTotal(shift, workedSeconds(shift.started_at, shift.ended_at, shift.break_seconds), rate), 0),
+    [shifts, rate],
+  );
 
   const byDay = useMemo(() => {
     const map = new Map<string, LocalShift[]>();
@@ -105,7 +108,7 @@ export default function Hours() {
             {hoursDecimal(totalSeconds).toFixed(1)} {t("settings.hoursShort")}
           </Mono>
 
-          {showEarnings && rate != null ? (
+          {showEarnings && (rate != null || totalEarnings > 0) ? (
             <View style={{ marginTop: space(3) }}>
               <Muted>{t("hours.earnings")}</Muted>
               <CountUpMoney
@@ -163,6 +166,11 @@ export default function Hours() {
                       <Mono style={{ color: theme.text }}>
                         {hms(workedSeconds(s.started_at, s.ended_at, s.break_seconds))}
                       </Mono>
+                      {showEarnings && savedShiftTotal(s, workedSeconds(s.started_at, s.ended_at, s.break_seconds), rate) > 0 && (
+                        <Muted style={{ color: theme.signal }}>
+                          {savedShiftTotal(s, workedSeconds(s.started_at, s.ended_at, s.break_seconds), rate).toFixed(2)} {profile?.currency ?? "EUR"}
+                        </Muted>
+                      )}
                     </View>
                   </View>
                 ))}

@@ -8,6 +8,7 @@ import { resolveEarnings } from "@/lib/report";
 import { money, hours1 } from "@/lib/format";
 import { isoWeek, weekDates, weekKey } from "@/lib/week";
 import type { Profile } from "@/lib/types";
+import { calculatePricingTotal, pricingUnit, PRICING_LABELS, shiftTotal } from "@/lib/pricing";
 
 interface Shift {
   id: string;
@@ -16,6 +17,11 @@ interface Shift {
   break_seconds: number;
   status: "open" | "closed";
   worked_seconds?: number | null;
+  pricing_type: "hourly" | "area" | "quantity";
+  pricing_rate: number | null;
+  quantity: number | null;
+  unit: string | null;
+  calculated_total: number | null;
 }
 
 function hms(total: number): string {
@@ -65,6 +71,8 @@ export function WorkerHome({
   const [view, setView] = useState<"shift" | "hours">("shift");
   const [rate, setRate] = useState(profile.self_hourly_rate != null ? String(profile.self_hourly_rate) : "");
   const [showEarn, setShowEarn] = useState(profile.show_earnings ?? true);
+  const [collectingQuantity, setCollectingQuantity] = useState(false);
+  const [completedQuantity, setCompletedQuantity] = useState("");
   const breakAccum = useRef(openShift?.break_seconds ?? 0);
   const breakStart = useRef<number | null>(null);
 
@@ -107,33 +115,45 @@ export function WorkerHome({
   // Wages are paid weekly (D-015), so the headline number is this Mon-Sun week;
   // the running timer counts into it live.
   const rateRes = resolveEarnings(seconds, profile.hourly_rate, profile.self_hourly_rate);
+  const pricingType = profile.pricing_type ?? "hourly";
+  const configuredRate = pricingType === "hourly" ? rateRes.rate : profile.hourly_rate;
+  const activePricingType = shift?.pricing_type ?? pricingType;
+  const activeRate = shift?.pricing_rate ?? configuredRate;
+  const activeUnit = shift?.unit ?? profile.pricing_unit;
   const now = new Date();
   const thisWeekKey = weekKey(now);
   const thisMonth = now.getUTCFullYear() * 12 + now.getUTCMonth();
   const running = phase !== "idle" ? seconds : 0;
 
-  const weekSeconds =
-    shifts.reduce((a, s) => (weekKey(new Date(s.started_at)) === thisWeekKey ? a + (s.worked_seconds ?? 0) : a), 0) +
-    running;
+  const weekRows = shifts.filter((s) => weekKey(new Date(s.started_at)) === thisWeekKey);
+  const weekSeconds = weekRows.reduce((a, s) => a + (s.worked_seconds ?? 0), 0) + running;
   const monthSeconds =
     shifts.reduce((a, s) => {
       const d = new Date(s.started_at);
       return d.getUTCFullYear() * 12 + d.getUTCMonth() === thisMonth ? a + (s.worked_seconds ?? 0) : a;
     }, 0) + running;
-  const weekEarn = resolveEarnings(weekSeconds, profile.hourly_rate, profile.self_hourly_rate);
-  const monthEarn = resolveEarnings(monthSeconds, profile.hourly_rate, profile.self_hourly_rate);
+  const closedWeekEarned = weekRows.reduce((sum, row) => sum + shiftTotal(row, rateRes.rate), 0);
+  const monthRows = shifts.filter((s) => {
+    const d = new Date(s.started_at);
+    return d.getUTCFullYear() * 12 + d.getUTCMonth() === thisMonth;
+  });
+  const closedMonthEarned = monthRows.reduce((sum, row) => sum + shiftTotal(row, rateRes.rate), 0);
+  const runningEarned = pricingType === "hourly" ? resolveEarnings(running, profile.hourly_rate, profile.self_hourly_rate).amount : 0;
+  const weekEarned = closedWeekEarned + runningEarned;
+  const monthEarned = closedMonthEarned + runningEarned;
 
   // history grouped into pay weeks, newest first
-  const byWeek: { key: string; label: string; seconds: number; rows: Shift[] }[] = [];
+  const byWeek: { key: string; label: string; seconds: number; amount: number; rows: Shift[] }[] = [];
   for (const s of shifts) {
     const d = new Date(s.started_at);
     const key = weekKey(d);
     let bucket = byWeek.find((b) => b.key === key);
     if (!bucket) {
-      bucket = { key, label: `${t("weekShort")}${isoWeek(d)} · ${weekDates(d)}`, seconds: 0, rows: [] };
+      bucket = { key, label: `${t("weekShort")}${isoWeek(d)} · ${weekDates(d)}`, seconds: 0, amount: 0, rows: [] };
       byWeek.push(bucket);
     }
     bucket.seconds += s.worked_seconds ?? 0;
+    bucket.amount += shiftTotal(s, rateRes.rate);
     bucket.rows.push(s);
   }
   byWeek.sort((a, b) => b.key.localeCompare(a.key));
@@ -145,7 +165,8 @@ export function WorkerHome({
       const { data, error } = await supabase
         .from("shifts")
         .insert({ user_id: profile.id, company_id: profile.company_id, started_at: new Date().toISOString(),
-          start_lat: f.lat, start_lng: f.lng, start_accuracy_m: f.acc, start_address: f.address, break_seconds: 0, status: "open", source: "app" })
+          start_lat: f.lat, start_lng: f.lng, start_accuracy_m: f.acc, start_address: f.address, break_seconds: 0, status: "open", source: "app",
+          pricing_type: pricingType, pricing_rate: configuredRate, unit: profile.pricing_unit })
         .select("*").single();
       if (error) throw error;
       breakAccum.current = 0; breakStart.current = null;
@@ -155,15 +176,18 @@ export function WorkerHome({
     } finally { setBusy(false); }
   }
 
-  async function finish() {
+  async function finish(completed: number | null = null) {
     if (!shift) return;
     setBusy(true); setGps("getting");
     try {
       const f = await getFix();
       if (breakStart.current) { breakAccum.current += Math.floor((Date.now() - breakStart.current) / 1000); breakStart.current = null; }
-      await supabase.from("shifts").update({ ended_at: new Date().toISOString(), end_lat: f.lat, end_lng: f.lng,
-        end_accuracy_m: f.acc, end_address: f.address, break_seconds: breakAccum.current, status: "closed" }).eq("id", shift.id);
+      const { error } = await supabase.from("shifts").update({ ended_at: new Date().toISOString(), end_lat: f.lat, end_lng: f.lng,
+        end_accuracy_m: f.acc, end_address: f.address, break_seconds: breakAccum.current, status: "closed",
+        quantity: activePricingType === "hourly" ? null : completed }).eq("id", shift.id);
+      if (error) throw error;
       setShift(null); setPhase("idle"); setSeconds(0); setGps("idle");
+      setCollectingQuantity(false); setCompletedQuantity("");
       router.refresh();
     } catch (e: any) {
       setGps(e?.code === 1 ? "denied" : "idle");
@@ -179,6 +203,7 @@ export function WorkerHome({
 
   async function saveSettings() {
     const v = rate.trim() === "" ? null : parseFloat(rate.replace(",", "."));
+    if (v != null && (!Number.isFinite(v) || v < 0)) return;
     await supabase.from("profiles").update({ self_hourly_rate: v, show_earnings: showEarn }).eq("id", profile.id);
     setShowSettings(false);
     router.refresh();
@@ -187,6 +212,8 @@ export function WorkerHome({
   const active = phase !== "idle";
   const target = (profile.target_shift_hours || 8) * 3600;
   const pct = Math.min(100, (seconds / target) * 100);
+  const parsedCompleted = completedQuantity.trim() ? Number(completedQuantity.replace(",", ".")) : Number.NaN;
+  const completionTotal = calculatePricingTotal({ pricingType: activePricingType, rate: activeRate, quantity: parsedCompleted });
 
   return (
     <div className="mx-auto flex min-h-[85vh] max-w-md flex-col justify-between gap-6 py-6">
@@ -206,10 +233,11 @@ export function WorkerHome({
         <div className="space-y-3 rounded-2xl border border-border bg-surface p-4 text-sm">
           <LangSwitcher />
           {profile.hourly_rate != null ? (
-            <div><span className="text-muted">{t("rateByEmployer")}: </span><b className="tabular">{money(profile.hourly_rate, profile.currency)}/{t("hoursUnit")}</b></div>
+            <div><span className="text-muted">Hinna tüüp: {PRICING_LABELS[pricingType]} · </span><b className="tabular">{money(profile.hourly_rate, profile.currency)}/{pricingUnit(pricingType, profile.pricing_unit)}</b></div>
           ) : (
-            <label className="block"><span className="text-muted">{t("yourRate")}</span>
+            pricingType === "hourly" ? <label className="block"><span className="text-muted">{t("yourRate")}</span>
               <input value={rate} onChange={(e) => setRate(e.target.value)} placeholder="0.00" className="mt-1 w-full rounded-lg border border-border bg-bg px-3 py-2" /></label>
+            : <p className="text-muted">Tööandja pole hinda määranud.</p>
           )}
           <label className="flex items-center gap-2"><input type="checkbox" checked={showEarn} onChange={(e) => setShowEarn(e.target.checked)} /> {t("showEarnings")}</label>
           <div className="flex gap-2">
@@ -240,7 +268,7 @@ export function WorkerHome({
               <div className={`tabular text-4xl font-semibold ${active ? "text-signal" : "text-text"}`}>{hms(seconds)}</div>
             </div>
 
-            {active && showEarn && rateRes.rate != null && (
+            {active && pricingType === "hourly" && showEarn && rateRes.rate != null && (
               <div className="text-center">
                 <div className="tabular text-2xl font-semibold text-signal">{money(rateRes.amount, profile.currency)}</div>
                 <div className="text-xs text-muted">{rateRes.source === "company" ? t("companyRate") : t("personalEstimate")} · {t("beforeTax")}</div>
@@ -256,7 +284,7 @@ export function WorkerHome({
               </button>
             ) : (
               <>
-                <button onClick={finish} disabled={busy} className="h-28 w-28 rounded-full bg-signal px-2 text-center text-base font-semibold leading-tight text-[#0B1320] disabled:opacity-60">
+                <button onClick={() => activePricingType === "hourly" ? void finish() : setCollectingQuantity(true)} disabled={busy} className="h-28 w-28 rounded-full bg-signal px-2 text-center text-base font-semibold leading-tight text-[#0B1320] disabled:opacity-60">
                   {busy ? "…" : t("finishShift")}
                 </button>
                 <button onClick={toggleBreak} className="rounded-full border border-border px-6 py-2 text-sm">
@@ -267,16 +295,30 @@ export function WorkerHome({
             {gps === "denied" && <p className="text-sm text-alert">{t("gpsDenied")}</p>}
           </div>
 
+          {collectingQuantity && activePricingType !== "hourly" && (
+            <div className="space-y-3 rounded-2xl border border-signal bg-surface p-4">
+              <label className="block text-sm">
+                <span className="text-muted">{activePricingType === "area" ? "Tehtud kogus (m²)" : `Kogus (${activeUnit ?? "ühik"})`}</span>
+                <input autoFocus inputMode="decimal" value={completedQuantity} onChange={(event) => setCompletedQuantity(event.target.value)} className="mt-1 w-full rounded-lg border border-border bg-bg px-3 py-2 text-lg tabular" />
+              </label>
+              <div className="text-right"><span className="text-sm text-muted">Kokku: </span><b className="tabular text-lg text-signal">{completionTotal == null ? "—" : money(completionTotal, profile.currency)}</b></div>
+              <div className="flex gap-2">
+                <button disabled={busy || !Number.isFinite(parsedCompleted) || parsedCompleted < 0 || completionTotal == null} onClick={() => void finish(parsedCompleted)} className="flex-1 rounded-lg bg-text py-2 font-semibold text-bg disabled:opacity-50">Salvesta ja lõpeta</button>
+                <button onClick={() => setCollectingQuantity(false)} className="rounded-lg border border-border px-4">Tühista</button>
+              </div>
+            </div>
+          )}
+
           {/* pay week total */}
           <div className="rounded-2xl border border-border bg-surface p-4 text-center">
             <div className="text-sm text-muted">{t("weekTotal")}</div>
             <div className="tabular text-2xl font-semibold">{hours1(weekSeconds)} {t("hoursUnit")}</div>
-            {showEarn && weekEarn.rate != null && (
-              <div className="tabular text-lg font-semibold text-signal">{money(weekEarn.amount, profile.currency)}</div>
+            {showEarn && weekEarned > 0 && (
+              <div className="tabular text-lg font-semibold text-signal">{money(weekEarned, profile.currency)}</div>
             )}
             <div className="mt-1 text-xs text-muted">
               {t("paidWeekly")} · {t("monthTotal").toLowerCase()} {hours1(monthSeconds)} {t("hoursUnit")}
-              {showEarn && monthEarn.rate != null ? ` · ${money(monthEarn.amount, profile.currency)}` : ""}
+              {showEarn && monthEarned > 0 ? ` · ${money(monthEarned, profile.currency)}` : ""}
             </div>
           </div>
         </>
@@ -285,8 +327,8 @@ export function WorkerHome({
           <div className="rounded-2xl border border-border bg-surface p-4 text-center">
             <div className="text-sm text-muted">{t("weekTotal")}</div>
             <div className="tabular text-3xl font-semibold">{hours1(weekSeconds)} {t("hoursUnit")}</div>
-            {showEarn && weekEarn.rate != null && (
-              <div className="tabular text-lg font-semibold text-signal">{money(weekEarn.amount, profile.currency)}</div>
+            {showEarn && weekEarned > 0 && (
+              <div className="tabular text-lg font-semibold text-signal">{money(weekEarned, profile.currency)}</div>
             )}
             <div className="mt-1 text-xs text-muted">{t("paidWeekly")}</div>
           </div>
@@ -295,7 +337,6 @@ export function WorkerHome({
             <p className="py-8 text-center text-muted">{t("noShifts")}</p>
           ) : (
             byWeek.map((wk) => {
-              const earn = resolveEarnings(wk.seconds, profile.hourly_rate, profile.self_hourly_rate);
               const current = wk.key === thisWeekKey;
               return (
                 <div key={wk.key} className="space-y-2">
@@ -306,8 +347,8 @@ export function WorkerHome({
                     </div>
                     <div className="text-right">
                       <span className="tabular font-semibold">{hours1(wk.seconds)} {t("hoursUnit")}</span>
-                      {showEarn && earn.rate != null && (
-                        <span className="tabular ml-2 font-semibold text-signal">{money(earn.amount, profile.currency)}</span>
+                      {showEarn && wk.amount > 0 && (
+                        <span className="tabular ml-2 font-semibold text-signal">{money(wk.amount, profile.currency)}</span>
                       )}
                     </div>
                   </div>
@@ -318,6 +359,8 @@ export function WorkerHome({
                         <div className="flex items-center justify-between">
                           <div className="font-medium">{fmtDate(s.started_at)}</div>
                           <div className="tabular font-semibold">{hours1(worked)} {t("hoursUnit")}</div>
+                          {showEarn && shiftTotal(s, rateRes.rate) > 0 && <div className="tabular text-sm font-semibold text-signal">{money(shiftTotal(s, rateRes.rate), profile.currency)}</div>}
+                          <div className="text-xs text-muted">{PRICING_LABELS[s.pricing_type ?? "hourly"]}{(s.pricing_type ?? "hourly") !== "hourly" && s.quantity != null ? ` · ${s.quantity} ${s.unit}` : ""}</div>
                         </div>
                         <div className="tabular mt-0.5 text-sm text-muted">
                           {fmtTime(s.started_at)} – {s.ended_at ? fmtTime(s.ended_at) : "…"}

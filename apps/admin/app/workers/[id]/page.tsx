@@ -11,7 +11,7 @@ import { EmployeeAssignmentManager } from "@/components/EmployeeAssignmentManage
 import { EditShift } from "@/components/EditShift";
 import { AddShift } from "@/components/AddShift";
 import { MapView } from "@/components/MapView";
-import { resolveEarnings } from "@/lib/report";
+import { pricingUnit, PRICING_LABELS, shiftTotal } from "@/lib/pricing";
 import type { EmployeeAssignment, EmployeeDocument, Profile, ShiftReport, Site } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -99,13 +99,16 @@ export default async function WorkerCard({
     .order("created_at", { ascending: false });
 
   const totalSeconds = shifts.reduce((s, r) => s + (r.worked_seconds ?? 0), 0);
-  const earn = resolveEarnings(totalSeconds, worker.hourly_rate, worker.self_hourly_rate);
+  const fallbackRate = worker.pricing_type === "hourly" ? worker.hourly_rate ?? worker.self_hourly_rate : worker.hourly_rate;
+  const totalEarned = shifts.reduce((sum, shift) => sum + shiftTotal(shift, fallbackRate), 0);
 
   // per-day totals for the calendar
   const dayTotals = new Map<number, number>();
+  const dayEarnings = new Map<number, number>();
   for (const s of shifts) {
     const d = new Date(s.started_at).getDate();
     dayTotals.set(d, (dayTotals.get(d) ?? 0) + (s.worked_seconds ?? 0));
+    dayEarnings.set(d, (dayEarnings.get(d) ?? 0) + shiftTotal(s, fallbackRate));
   }
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const firstDow = (new Date(year, month, 1).getDay() + 6) % 7; // Monday=0
@@ -119,7 +122,8 @@ export default async function WorkerCard({
   const calendarWeeks = Array.from({ length: cells.length / 7 }, (_, r) => {
     const row = cells.slice(r * 7, r * 7 + 7);
     const seconds = row.reduce((a: number, day) => a + (day != null ? dayTotals.get(day) ?? 0 : 0), 0);
-    return { row, seconds, earned: resolveEarnings(seconds, worker.hourly_rate, worker.self_hourly_rate).amount };
+    const earned = row.reduce((sum: number, day) => sum + (day != null ? dayEarnings.get(day) ?? 0 : 0), 0);
+    return { row, seconds, earned };
   });
 
   // GPS markers for the month
@@ -163,9 +167,9 @@ export default async function WorkerCard({
         </div>
         <div className="text-right">
           <div className="tabular text-3xl font-semibold">{hours1(totalSeconds)} h</div>
-          {earn.rate != null && (
+          {totalEarned > 0 && (
             <div className="text-sm text-muted">
-              {money(earn.amount, worker.currency)} · {earn.source === "company" ? "ettevõtte tunnitasu" : "isiklik hinnang"}
+              {money(totalEarned, worker.currency)} · segahinnastusega töö
             </div>
           )}
         </div>
@@ -211,7 +215,7 @@ export default async function WorkerCard({
                   )}
                   <div className={`aspect-square rounded-lg border p-1 ${wk.seconds ? "border-signal bg-signal/15" : "border-border"}`}>
                     <div className="tabular text-xs font-semibold text-text">{wk.seconds ? hours1(wk.seconds) : "·"}</div>
-                    {wk.seconds > 0 && earn.rate != null && (
+                    {wk.earned > 0 && (
                       <div className="tabular text-[10px] font-semibold text-signal">
                         {money(wk.earned, worker.currency)}
                       </div>
@@ -240,6 +244,10 @@ export default async function WorkerCard({
                 userId={worker.id}
                 companyId={worker.company_id}
                 workerName={`${worker.first_name} ${worker.last_name}`}
+                defaultPricingType={worker.pricing_type ?? "hourly"}
+                defaultRate={worker.hourly_rate ?? (worker.pricing_type === "hourly" ? worker.self_hourly_rate : null)}
+                defaultUnit={worker.pricing_unit}
+                currency={worker.currency}
               />
             </div>
             {shifts.length === 0 && <p className="text-muted">Sel kuul vahetusi pole.</p>}
@@ -262,6 +270,11 @@ export default async function WorkerCard({
                     </div>
                     <div className="text-right">
                       <div className="tabular text-lg font-semibold">{hours1(s.worked_seconds)} h</div>
+                      <div className="tabular text-sm font-semibold text-signal">{money(shiftTotal(s, fallbackRate), worker.currency)}</div>
+                      <div className="text-xs text-muted">
+                        {PRICING_LABELS[s.pricing_type ?? "hourly"]} · {s.pricing_rate?.toFixed(2) ?? "—"} €/{pricingUnit(s.pricing_type ?? "hourly", s.unit)}
+                        {(s.pricing_type ?? "hourly") !== "hourly" && s.quantity != null ? ` · ${s.quantity} ${s.unit}` : ""}
+                      </div>
                       <div className="flex items-center justify-end gap-2">
                         {s.source === "manual" && <span className="text-xs text-muted">käsitsi</span>}
                         {s.status === "open" && <span className="text-xs text-signal">avatud</span>}
@@ -276,7 +289,7 @@ export default async function WorkerCard({
                       🟢 {s.start_address ?? "—"}
                       {s.end_address ? <> · 🔴 {s.end_address}</> : null}
                     </span>
-                    <EditShift shift={{ id: s.id, started_at: s.started_at, ended_at: s.ended_at, break_seconds: s.break_seconds, status: s.status }} />
+                    <EditShift shift={{ id: s.id, started_at: s.started_at, ended_at: s.ended_at, break_seconds: s.break_seconds, status: s.status, pricing_type: s.pricing_type, pricing_rate: s.pricing_rate, quantity: s.quantity, unit: s.unit }} />
                   </div>
 
                   {shiftEdits.length > 0 && (

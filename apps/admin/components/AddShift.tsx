@@ -2,6 +2,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase-browser";
+import { calculatePricingTotal, pricingUnit, type PricingType } from "@/lib/pricing";
+import { money } from "@/lib/format";
 
 // Hours for a day the worker never clocked — forgot to press start, worked off
 // the app, or the punch was thrown away as wrong. Written as source = 'manual'
@@ -10,10 +12,18 @@ export function AddShift({
   userId,
   companyId,
   workerName,
+  defaultPricingType,
+  defaultRate,
+  defaultUnit,
+  currency,
 }: {
   userId: string;
   companyId: string;
   workerName: string;
+  defaultPricingType: PricingType;
+  defaultRate: number | null;
+  defaultUnit: string | null;
+  currency: string;
 }) {
   const supabase = supabaseBrowser();
   const router = useRouter();
@@ -22,6 +32,10 @@ export function AddShift({
   const [from, setFrom] = useState("08:00");
   const [to, setTo] = useState("16:30");
   const [breakMin, setBreakMin] = useState("30");
+  const [pricingType, setPricingType] = useState<PricingType>(defaultPricingType);
+  const [rate, setRate] = useState(defaultRate == null ? "" : String(defaultRate));
+  const [quantity, setQuantity] = useState("");
+  const [unit, setUnit] = useState(defaultUnit ?? "");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -31,6 +45,14 @@ export function AddShift({
   // A shift that ends before it starts crossed midnight — count it into the next day.
   const spanSecs = Math.floor(((endMs > startMs ? endMs : endMs + 86400000) - startMs) / 1000);
   const hours = Math.max(0, spanSecs - breakSecs) / 3600;
+  const parsedRate = rate.trim() === "" ? null : Number(rate.replace(",", "."));
+  const parsedQuantity = quantity.trim() === "" ? null : Number(quantity.replace(",", "."));
+  const previewTotal = calculatePricingTotal({
+    pricingType,
+    rate: parsedRate,
+    workedSeconds: Math.round(hours * 3600),
+    quantity: parsedQuantity,
+  });
 
   async function save() {
     setErr(null);
@@ -40,6 +62,18 @@ export function AddShift({
     }
     if (hours <= 0) {
       setErr("Vahetuse pikkus peab olema üle nulli.");
+      return;
+    }
+    if ((parsedRate != null && (!Number.isFinite(parsedRate) || parsedRate < 0)) || (pricingType !== "hourly" && parsedRate == null)) {
+      setErr("Sisesta kehtiv hind.");
+      return;
+    }
+    if (pricingType !== "hourly" && (parsedQuantity == null || !Number.isFinite(parsedQuantity) || parsedQuantity < 0)) {
+      setErr("Sisesta tehtud kogus.");
+      return;
+    }
+    if (pricingType === "quantity" && !unit.trim()) {
+      setErr("Sisesta ühik.");
       return;
     }
     setBusy(true);
@@ -64,6 +98,10 @@ export function AddShift({
         break_seconds: breakSecs,
         status: "closed",
         source: "manual",
+        pricing_type: pricingType,
+        pricing_rate: parsedRate,
+        quantity: pricingType === "hourly" ? null : parsedQuantity,
+        unit: pricingType === "quantity" ? unit.trim() : pricingType === "area" ? "m²" : null,
       })
       .select("id")
       .single();
@@ -79,7 +117,7 @@ export function AddShift({
       edited_by: user.id,
       field: "created",
       old_value: null,
-      new_value: `manual ${hours.toFixed(2)} h`,
+      new_value: `manual ${hours.toFixed(2)} h · ${pricingType} · ${previewTotal?.toFixed(2) ?? "—"} EUR`,
     });
 
     setBusy(false);
@@ -93,7 +131,7 @@ export function AddShift({
         onClick={() => setOpen(true)}
         className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:border-signal"
       >
-        + Lisa tunnid käsitsi
+        + Lisa töö käsitsi
       </button>
     );
 
@@ -101,7 +139,33 @@ export function AddShift({
 
   return (
     <div className="space-y-3 rounded-2xl border border-border bg-surface p-4 text-sm">
-      <div className="font-medium">Lisa tunnid käsitsi — {workerName}</div>
+      <div className="font-medium">Lisa töö käsitsi — {workerName}</div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <label>
+          <span className="block text-xs text-muted">Hinna tüüp</span>
+          <select value={pricingType} onChange={(event) => setPricingType(event.target.value as PricingType)} className={`mt-1 w-full ${input}`}>
+            <option value="hourly">Tunnipõhine</option>
+            <option value="area">m² põhine</option>
+            <option value="quantity">Kogusepõhine</option>
+          </select>
+        </label>
+        {pricingType === "quantity" && (
+          <label>
+            <span className="block text-xs text-muted">Ühik</span>
+            <input value={unit} onChange={(event) => setUnit(event.target.value)} maxLength={24} placeholder="tk, kompl, kast…" className={`mt-1 w-full ${input}`} />
+          </label>
+        )}
+        <label>
+          <span className="block text-xs text-muted">Hind €/{pricingUnit(pricingType, unit)}</span>
+          <input inputMode="decimal" value={rate} onChange={(event) => setRate(event.target.value)} placeholder="0.00" className={`mt-1 w-full ${input}`} />
+        </label>
+        {pricingType !== "hourly" && (
+          <label>
+            <span className="block text-xs text-muted">{pricingType === "area" ? "Tehtud kogus (m²)" : `Kogus (${unit || "ühik"})`}</span>
+            <input inputMode="decimal" value={quantity} onChange={(event) => setQuantity(event.target.value)} placeholder="0" className={`mt-1 w-full ${input}`} />
+          </label>
+        )}
+      </div>
       <div className="flex flex-wrap items-end gap-2">
         <label>
           <span className="block text-xs text-muted">Kuupäev</span>
@@ -123,6 +187,10 @@ export function AddShift({
           <span className="block text-xs text-muted">Tunnid</span>
           <span className="tabular font-semibold text-signal">{hours.toFixed(1)} h</span>
         </div>
+      </div>
+      <div className="rounded-lg bg-bg px-3 py-2 text-right">
+        <span className="text-xs text-muted">Kokku </span>
+        <span className="tabular font-semibold text-signal">{previewTotal == null ? "—" : money(previewTotal, currency)}</span>
       </div>
       {err && <p className="text-alert">{err}</p>}
       <div className="flex gap-2">

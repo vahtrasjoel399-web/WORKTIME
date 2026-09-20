@@ -1,5 +1,5 @@
-import React, { useMemo } from "react";
-import { Alert, Platform, View, StyleSheet, Pressable, useWindowDimensions } from "react-native";
+import React, { useMemo, useState } from "react";
+import { Alert, Platform, View, StyleSheet, Pressable, TextInput, useWindowDimensions } from "react-native";
 import { MotiView, AnimatePresence } from "moti";
 import { useTheme } from "@/theme/ThemeProvider";
 import { Screen, Title, Muted, Body, Chip, Mono } from "@/components/ui";
@@ -8,7 +8,7 @@ import { ShiftButton } from "@/components/ShiftButton";
 import { CountUpMoney } from "@/components/CountUpMoney";
 import { useSession } from "@/state/session";
 import { useShiftController } from "@/state/shift";
-import { resolveRate, earningsFor } from "@/lib/earnings";
+import { resolveRate, earningsFor, formatMoney, pricingTotal } from "@/lib/earnings";
 import { hms } from "@/lib/time";
 import { font, space, radius } from "@/theme/tokens";
 import { t } from "@/i18n";
@@ -20,6 +20,8 @@ export default function Home() {
   const { width, height } = useWindowDimensions();
   // timer scales to the smaller screen dimension so it fits every phone
   const timerSize = Math.max(180, Math.min(width * 0.68, height * 0.38, 300));
+  const [showCompletion, setShowCompletion] = useState(false);
+  const [quantity, setQuantity] = useState("");
 
   const targetSeconds = (profile?.target_shift_hours ?? 8) * 3600;
   const progress = state.seconds / targetSeconds;
@@ -31,18 +33,29 @@ export default function Home() {
   const showEarnings = profile?.show_earnings ?? true;
   const earnings = earningsFor(state.seconds, rate);
   const active = state.phase === "running" || state.phase === "onBreak";
+  const activePricingType = state.shift?.pricing_type ?? profile?.pricing_type ?? "hourly";
+  const activeRate = state.shift?.pricing_rate ?? (activePricingType === "hourly" ? rate : profile?.hourly_rate ?? null);
+  const activeUnit = state.shift?.unit ?? (activePricingType === "area" ? "m²" : profile?.pricing_unit ?? null);
+  const parsedQuantity = quantity.trim() ? Number(quantity.replace(",", ".")) : Number.NaN;
+  const completionTotal = pricingTotal(activePricingType, activeRate, state.seconds, parsedQuantity);
 
-  const confirmFinish = () => {
+  const confirmFinish = (completed: number | null = null) => {
     if (Platform.OS === "web") {
       if (window.confirm(`${t("home.finishConfirmTitle")}\n\n${t("home.finishConfirmMessage")}`)) {
-        void finish();
+        setShowCompletion(false);
+        void finish(completed);
       }
       return;
     }
     Alert.alert(t("home.finishConfirmTitle"), t("home.finishConfirmMessage"), [
       { text: t("common.cancel"), style: "cancel" },
-      { text: t("home.finishConfirmAction"), style: "destructive", onPress: () => void finish() },
+      { text: t("home.finishConfirmAction"), style: "destructive", onPress: () => { setShowCompletion(false); void finish(completed); } },
     ]);
+  };
+
+  const requestFinish = () => {
+    if (activePricingType === "hourly") confirmFinish();
+    else setShowCompletion(true);
   };
 
   return (
@@ -78,7 +91,7 @@ export default function Home() {
           )}
 
           {/* live earnings count-up */}
-          {active && showEarnings && rate != null && (
+          {active && activePricingType === "hourly" && showEarnings && rate != null && (
             <MotiView
               from={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -105,7 +118,7 @@ export default function Home() {
             <ShiftButton mode="start" label={t("home.start")} onPress={start} busy={state.busy} />
           ) : (
             <>
-              <ShiftButton mode="finish" label={t("home.finish")} onPress={confirmFinish} busy={state.busy} />
+              <ShiftButton mode="finish" label={t("home.finish")} onPress={requestFinish} busy={state.busy} />
               <Pressable onPress={toggleBreak} style={[styles.breakBtn, { borderColor: theme.border }]}>
                 <Body style={{ color: theme.text, fontFamily: font.textMedium }}>
                   {state.phase === "onBreak" ? t("home.resume") : t("home.pause")}
@@ -116,6 +129,32 @@ export default function Home() {
 
           {state.error === "location-denied" && (
             <Body style={{ color: theme.alert, textAlign: "center" }}>{t("home.locationDenied")}</Body>
+          )}
+
+          {showCompletion && activePricingType !== "hourly" && (
+            <View style={[styles.completion, { backgroundColor: theme.surface, borderColor: theme.signal }]}>
+              <Muted>{activePricingType === "area" ? "Tehtud kogus (m²)" : `Kogus (${activeUnit ?? "ühik"})`}</Muted>
+              <TextInput
+                autoFocus
+                keyboardType="decimal-pad"
+                value={quantity}
+                onChangeText={setQuantity}
+                placeholder="0"
+                placeholderTextColor={theme.textMuted}
+                style={[styles.quantityInput, { color: theme.text, borderColor: theme.border }]}
+              />
+              <Body style={{ textAlign: "right", fontFamily: font.mono, color: theme.signal }}>
+                Kokku: {completionTotal == null ? "—" : formatMoney(completionTotal, profile?.currency ?? "EUR")}
+              </Body>
+              <View style={{ flexDirection: "row", gap: space(2) }}>
+                <Pressable disabled={completionTotal == null} onPress={() => confirmFinish(parsedQuantity)} style={[styles.confirmCompletion, { backgroundColor: theme.text, opacity: completionTotal == null ? 0.5 : 1 }]}>
+                  <Body style={{ color: theme.bg, fontFamily: font.textSemibold }}>Salvesta ja lõpeta</Body>
+                </Pressable>
+                <Pressable onPress={() => setShowCompletion(false)} style={[styles.cancelCompletion, { borderColor: theme.border }]}>
+                  <Body>Tühista</Body>
+                </Pressable>
+              </View>
+            </View>
           )}
         </View>
       </View>
@@ -136,6 +175,11 @@ export default function Home() {
             <Mono style={{ fontSize: 52, color: theme.text, marginVertical: space(1) }}>
               {hms(state.lastSummarySeconds)}
             </Mono>
+            {state.lastSummaryAmount != null && (
+              <Body style={{ color: theme.signal, fontFamily: font.mono, fontSize: 24 }}>
+                {formatMoney(state.lastSummaryAmount, profile?.currency ?? "EUR")}
+              </Body>
+            )}
             <Pressable onPress={clearSummary} style={[styles.okBtn, { backgroundColor: theme.text }]}>
               <Body style={{ color: theme.bg, fontFamily: font.textSemibold }}>OK</Body>
             </Pressable>
@@ -174,4 +218,8 @@ const styles = StyleSheet.create({
     paddingVertical: space(3),
     borderRadius: radius.pill,
   },
+  completion: { borderWidth: StyleSheet.hairlineWidth, borderRadius: radius.lg, padding: space(4), gap: space(3) },
+  quantityInput: { borderWidth: StyleSheet.hairlineWidth, borderRadius: radius.md, paddingHorizontal: space(4), paddingVertical: space(3), fontFamily: font.mono, fontSize: 20 },
+  confirmCompletion: { flex: 1, borderRadius: radius.md, paddingVertical: space(3), alignItems: "center" },
+  cancelCompletion: { borderWidth: StyleSheet.hairlineWidth, borderRadius: radius.md, paddingHorizontal: space(4), justifyContent: "center" },
 });

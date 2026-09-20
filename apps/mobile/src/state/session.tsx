@@ -21,6 +21,8 @@ const DEMO_PROFILE: Profile = {
   is_approved: true,
   locale: "et",
   hourly_rate: null,
+  pricing_type: "hourly",
+  pricing_unit: null,
   self_hourly_rate: 15,
   currency: "EUR",
   target_shift_hours: 8,
@@ -43,6 +45,8 @@ export interface Profile {
   is_approved: boolean;
   locale: Locale;
   hourly_rate: number | null;
+  pricing_type: "hourly" | "area" | "quantity";
+  pricing_unit: string | null;
   self_hourly_rate: number | null;
   currency: string;
   target_shift_hours: number;

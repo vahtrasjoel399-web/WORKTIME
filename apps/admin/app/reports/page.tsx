@@ -5,6 +5,7 @@ import { hours1, money } from "@/lib/format";
 import { addWeeks, isFullWeek, isoWeek, parseYmd, startOfWeek, weekRange, ymd } from "@/lib/week";
 import type { ShiftReport } from "@/lib/types";
 import { ExportButtons } from "@/components/ExportButtons";
+import { pricingUnit, PRICING_LABELS } from "@/lib/pricing";
 
 export const dynamic = "force-dynamic";
 
@@ -127,7 +128,7 @@ export default async function ReportsPage({
                 );
               })}
               <th className="px-3 py-2 text-right font-medium">Kokku</th>
-              <th className="hidden px-3 py-2 text-right font-medium sm:table-cell">€/h</th>
+              <th className="hidden px-3 py-2 text-right font-medium sm:table-cell">Hind</th>
               <th className="px-3 py-2 text-right font-medium">Teenitud</th>
             </tr>
           </thead>
@@ -154,7 +155,8 @@ export default async function ReportsPage({
                   {hours1(matrix.totalsByWorker[w.id])}
                 </td>
                 <td className="hidden px-3 py-2 text-right tabular text-muted sm:table-cell">
-                  {w.rate != null ? w.rate.toFixed(2) : "—"}
+                  <div>{w.rate != null ? `${w.rate.toFixed(2)} €/${pricingUnit(w.pricingType, w.unit)}` : "—"}</div>
+                  <div className="text-[10px]">{PRICING_LABELS[w.pricingType]}</div>
                 </td>
                 <td className="px-3 py-2 text-right tabular font-semibold text-signal">
                   {w.rate != null ? money(matrix.earningsByWorker[w.id], w.currency) : "—"}
@@ -233,7 +235,7 @@ export default async function ReportsPage({
       )}
 
       <p className="text-xs text-muted">
-        ⚑ = kordi väljaspool objekti tsooni. Summad on bruto ja orienteeruvad (tunnid × tunnitasu) —
+        ⚑ = kordi väljaspool objekti tsooni. Summad on bruto ja orienteeruvad (tunnid × hind või tehtud kogus × hind) —
         ületunde, öötööd ega makse siin ei arvestata.
       </p>
     </div>

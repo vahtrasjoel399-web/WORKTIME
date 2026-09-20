@@ -1,4 +1,5 @@
 import type { ShiftReport } from "./types";
+import { shiftTotal, type PricingType } from "./pricing";
 import { parseYmd, weekKey, weekLabel } from "./week";
 
 export type RateSource = "company" | "personal" | "none";
@@ -21,16 +22,19 @@ export interface WorkerRow {
   last_name: string;
   hourly_rate: number | null;
   self_hourly_rate: number | null;
+  pricing_type: PricingType;
+  pricing_unit: string | null;
   currency: string;
 }
 
 export interface ReportMatrix {
-  workers: { id: string; name: string; rate: number | null; currency: string }[];
+  workers: { id: string; name: string; rate: number | null; pricingType: PricingType; unit: string | null; currency: string }[];
   days: string[]; // yyyy-mm-dd
   // hours[workerId][day] = decimal hours
   hours: Record<string, Record<string, number>>;
   totalsByWorker: Record<string, number>; // seconds
   earningsByWorker: Record<string, number>; // gross, pre-tax, in the worker's currency
+  earningsByDay: Record<string, Record<string, number>>;
   flagsByWorker: Record<string, number>; // out-of-zone count
 }
 
@@ -50,12 +54,14 @@ export function buildMatrix(
   const hours: Record<string, Record<string, number>> = {};
   const totals: Record<string, number> = {};
   const earnings: Record<string, number> = {};
+  const earningsByDay: Record<string, Record<string, number>> = {};
   const flags: Record<string, number> = {};
 
   for (const w of workers) {
     hours[w.id] = {};
     totals[w.id] = 0;
     earnings[w.id] = 0;
+    earningsByDay[w.id] = {};
     flags[w.id] = 0;
   }
   for (const s of shifts) {
@@ -64,23 +70,30 @@ export function buildMatrix(
     const h = (s.worked_seconds ?? 0) / 3600;
     hours[s.user_id][day] = (hours[s.user_id][day] ?? 0) + h;
     totals[s.user_id] += s.worked_seconds ?? 0;
+    const worker = workers.find((row) => row.id === s.user_id);
+    const fallbackRate = worker
+      ? worker.pricing_type === "hourly" ? worker.hourly_rate ?? worker.self_hourly_rate ?? null : worker.hourly_rate
+      : null;
+    const amount = shiftTotal(s, fallbackRate);
+    earnings[s.user_id] += amount;
+    earningsByDay[s.user_id][day] = (earningsByDay[s.user_id][day] ?? 0) + amount;
     if (s.out_of_zone) flags[s.user_id] += 1;
-  }
-  for (const w of workers) {
-    earnings[w.id] = resolveEarnings(totals[w.id], w.hourly_rate, w.self_hourly_rate).amount;
   }
 
   return {
     workers: workers.map((w) => ({
       id: w.id,
       name: `${w.first_name} ${w.last_name}`,
-      rate: w.hourly_rate ?? w.self_hourly_rate ?? null,
+      rate: w.pricing_type === "hourly" ? w.hourly_rate ?? w.self_hourly_rate ?? null : w.hourly_rate,
+      pricingType: w.pricing_type ?? "hourly",
+      unit: w.pricing_unit,
       currency: w.currency,
     })),
     days,
     hours,
     totalsByWorker: totals,
     earningsByWorker: earnings,
+    earningsByDay,
     flagsByWorker: flags,
   };
 }
@@ -115,17 +128,15 @@ export function buildWeekly(matrix: ReportMatrix, workers: WorkerRow[]): WeeklyB
     seconds[w.id] = {};
     earnings[w.id] = {};
     for (const day of matrix.days) {
-      const h = matrix.hours[w.id]?.[day];
-      if (!h) continue;
+      const h = matrix.hours[w.id]?.[day] ?? 0;
+      const dayAmount = matrix.earningsByDay[w.id]?.[day] ?? 0;
+      if (!h && !dayAmount) continue;
       const key = weekKey(parseYmd(day));
       const secs = h * 3600;
       seconds[w.id][key] = (seconds[w.id][key] ?? 0) + secs;
+      earnings[w.id][key] = (earnings[w.id][key] ?? 0) + dayAmount;
       totalsByWeek[key] += secs;
-    }
-    for (const [key, secs] of Object.entries(seconds[w.id])) {
-      const amount = resolveEarnings(secs, w.hourly_rate, w.self_hourly_rate).amount;
-      earnings[w.id][key] = amount;
-      earningsByWeek[key] += amount;
+      earningsByWeek[key] += dayAmount;
     }
   }
 

@@ -7,6 +7,7 @@ import { Icon } from "./Icon";
 import { distanceLabel, matchSite, shortAddress } from "@/lib/geo";
 import { hours1, money } from "@/lib/format";
 import type { Profile, Site } from "@/lib/types";
+import { pricingUnit, PRICING_LABELS } from "@/lib/pricing";
 
 type OpenShift = {
   user_id: string;
@@ -138,7 +139,7 @@ export function EmployeeDirectory({ workers, sites, openShifts, assignments, wee
           const assignedSiteId = assignment?.site_id ?? worker.default_site_id;
           const assignedSite = assignedSiteId ? siteById.get(assignedSiteId) : null;
           const seconds = weekSeconds[worker.id] ?? 0;
-          const rate = worker.hourly_rate ?? worker.self_hourly_rate ?? null;
+          const rate = worker.pricing_type === "hourly" ? worker.hourly_rate ?? worker.self_hourly_rate ?? null : worker.hourly_rate;
           return (
             <Link
               key={worker.id}
@@ -189,7 +190,7 @@ export function EmployeeDirectory({ workers, sites, openShifts, assignments, wee
                 <th className="px-4 py-3 font-medium">Praegune objekt</th>
                 <th className="px-4 py-3 font-medium">Staatus</th>
                 <th className="px-4 py-3 text-right font-medium">Nädal</th>
-                <th className="px-4 py-3 text-right font-medium">Tunnitasu</th>
+                <th className="px-4 py-3 text-right font-medium">Hind</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
@@ -204,7 +205,7 @@ export function EmployeeDirectory({ workers, sites, openShifts, assignments, wee
                 const address = shortAddress(open?.start_address ?? null);
                 const outOfZone = open != null && detectedSite == null && fix?.nearest != null;
                 const seconds = weekSeconds[worker.id] ?? 0;
-                const rate = worker.hourly_rate ?? worker.self_hourly_rate ?? null;
+                const rate = worker.pricing_type === "hourly" ? worker.hourly_rate ?? worker.self_hourly_rate ?? null : worker.hourly_rate;
                 return (
                   <tr key={worker.id} className="rise border-b border-border last:border-0 hover:bg-bg" style={{ animationDelay: `${index * 25}ms` }}>
                     <td className="px-4 py-3">
@@ -240,7 +241,8 @@ export function EmployeeDirectory({ workers, sites, openShifts, assignments, wee
                       <div className="tabular text-xs text-signal">{rate != null ? money(weekEarned[worker.id] ?? 0, worker.currency) : "—"}</div>
                     </td>
                     <td className="px-4 py-3 text-right text-muted">
-                      {worker.hourly_rate != null ? money(worker.hourly_rate, worker.currency) : "—"}
+                      <div>{worker.hourly_rate != null ? `${money(worker.hourly_rate, worker.currency)}/${pricingUnit(worker.pricing_type ?? "hourly", worker.pricing_unit)}` : "—"}</div>
+                      <div className="text-[10px]">{PRICING_LABELS[worker.pricing_type ?? "hourly"]}</div>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <DeleteWorker id={worker.id} name={`${worker.first_name} ${worker.last_name}`} />

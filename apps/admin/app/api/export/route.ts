@@ -5,6 +5,7 @@ import { buildMatrix, buildWeekly, type WorkerRow } from "@/lib/report";
 import { isFullWeek, isoWeek, isoWeekYear, parseYmd } from "@/lib/week";
 import type { ShiftReport } from "@/lib/types";
 import { getProfile } from "@/lib/auth";
+import { pricingUnit, PRICING_LABELS } from "@/lib/pricing";
 
 export const dynamic = "force-dynamic";
 
@@ -59,19 +60,21 @@ export async function GET(req: NextRequest) {
   const weekly = buildWeekly(matrix, workerRows);
 
   // rows: worker, [day...], total hours, rate, gross, out-of-zone flags
-  const header = ["Töötaja", ...matrix.days, "Tunnid kokku", "Tunnitasu", "Bruto (orient.)", "Väljaspool tsooni"];
+  const header = ["Töötaja", "Hinna tüüp", "Ühik", ...matrix.days, "Tunnid kokku", "Hind", "Bruto (orient.)", "Väljaspool tsooni"];
   const rows = matrix.workers.map((w) => {
     const totalH = matrix.totalsByWorker[w.id] / 3600;
-    const gross = w.rate != null ? totalH * w.rate : null;
+    const gross = matrix.earningsByWorker[w.id];
     return [
       w.name,
+      PRICING_LABELS[w.pricingType],
+      pricingUnit(w.pricingType, w.unit),
       ...matrix.days.map((d) => {
         const h = matrix.hours[w.id]?.[d];
         return h ? Number(h.toFixed(2)) : "";
       }),
       Number(totalH.toFixed(2)),
       w.rate ?? "",
-      gross != null ? Number(gross.toFixed(2)) : "",
+      Number(gross.toFixed(2)),
       matrix.flagsByWorker[w.id] || "",
     ];
   });
@@ -79,24 +82,30 @@ export async function GET(req: NextRequest) {
   // per-week sheet: hours and gross side by side for every pay week in the range
   const weekHeader = [
     "Töötaja",
-    "Tunnitasu",
+    "Hinna tüüp",
+    "Ühik",
+    "Hind",
     ...weekly.weeks.flatMap((w) => [`${w.label} h`, `${w.label} €`]),
     "Tunnid kokku",
     "Bruto kokku",
   ];
   const weekRows = matrix.workers.map((w) => [
     w.name,
+    PRICING_LABELS[w.pricingType],
+    pricingUnit(w.pricingType, w.unit),
     w.rate ?? "",
     ...weekly.weeks.flatMap((wk) => {
       const secs = weekly.seconds[w.id]?.[wk.key] ?? 0;
       const amt = weekly.earnings[w.id]?.[wk.key] ?? 0;
-      return [secs ? Number((secs / 3600).toFixed(2)) : "", secs && w.rate != null ? Number(amt.toFixed(2)) : ""];
+      return [secs ? Number((secs / 3600).toFixed(2)) : "", amt ? Number(amt.toFixed(2)) : ""];
     }),
     Number((matrix.totalsByWorker[w.id] / 3600).toFixed(2)),
-    w.rate != null ? Number(matrix.earningsByWorker[w.id].toFixed(2)) : "",
+    Number(matrix.earningsByWorker[w.id].toFixed(2)),
   ]);
   const weekTotals = [
     "KOKKU",
+    "",
+    "",
     "",
     ...weekly.weeks.flatMap((wk) => [
       Number((weekly.totalsByWeek[wk.key] / 3600).toFixed(2)),

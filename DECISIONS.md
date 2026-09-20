@@ -3,6 +3,14 @@
 Running log. Newest first. Each entry: **what** was decided and **why**, so future changes don't
 re-litigate settled ground.
 
+## D-026 — Every work entry snapshots pricing and Postgres calculates the final amount
+An employee has a default pricing method (`hourly`, `area`, or `quantity`), a rate, and an optional
+custom unit. A shift snapshots those values when it starts, so later configuration changes do not
+rewrite historical payroll. The database trigger validates completed quantities and writes the
+two-decimal `calculated_total`; UI calculations are previews only. Time tracking, breaks and GPS
+continue for every pricing method, while area/quantity shifts additionally require the completed
+amount at finish. Records created before this change are migrated as hourly.
+
 ## D-025 — Privacy lifecycle covers files, exports and exact location data
 Worker erasure removes private Storage objects before deleting the Auth account and cascading
 database rows. Exports include assignment history, document metadata and short-lived download
@@ -94,11 +102,11 @@ Computed as `extract(epoch from ended_at - started_at) - break_seconds`, `stored
 when `ended_at is not null`. Keeping it generated means clients and reports never disagree on the
 arithmetic, and manual admin edits to timestamps recompute automatically.
 
-## D-013 — Earnings computed client-side, never stored
-Rate can change and is legally "indicative, pre-tax". We never persist a money amount on a shift;
-we store hours and resolve `hourly_rate` (admin) → `self_hourly_rate` (worker) at display time. This
-avoids stale/incorrect payroll numbers and keeps the "company rate vs personal estimate" label
-honest. Overtime/night/holiday multipliers are explicitly **out of scope** — surfaced in a hint.
+## D-013 — Historical: hourly earnings were originally computed at display time
+The first hourly-only implementation resolved `hourly_rate` (admin) → `self_hourly_rate` (worker)
+at display time. D-026 supersedes that approach for new work entries: mixed pricing requires a
+rate snapshot and database-calculated total. Overtime/night/holiday multipliers remain explicitly
+**out of scope** and are surfaced in a hint.
 
 ## D-012 — Location-notice acknowledgement stored separately, not as a profile boolean
 We need the *timestamp* and *version* of the notice shown to a worker. In an employment context this

@@ -5,6 +5,7 @@ import { emailSuggestion, isValidEmail } from "@/lib/email";
 import { employeeFileError, employeeStoragePath } from "@/lib/employee-files";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 import type { Site } from "@/lib/types";
+import { pricingUnit, validPricingConfig, type PricingType } from "@/lib/pricing";
 
 const empty = {
   first_name: "",
@@ -13,6 +14,8 @@ const empty = {
   phone: "",
   position: "",
   initial_site_id: "",
+  pricing_type: "hourly" as PricingType,
+  pricing_unit: "",
   hourly_rate: "",
 };
 
@@ -90,6 +93,9 @@ export function AddWorker({ sites, companyId, actorId }: { sites: Site[]; compan
       if (cvError) return setError(cvError);
       if (!CV_MIME_TYPES.has(cv.type)) return setError("CV peab olema PDF- või Word-fail.");
     }
+    const parsedRate = form.hourly_rate ? parseFloat(form.hourly_rate.replace(",", ".")) : null;
+    const pricingError = validPricingConfig(form.pricing_type, parsedRate, form.pricing_unit);
+    if (pricingError) return setError(pricingError);
 
     setBusy(true);
     const res = await fetch("/api/workers", {
@@ -97,7 +103,7 @@ export function AddWorker({ sites, companyId, actorId }: { sites: Site[]; compan
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...form,
-        hourly_rate: form.hourly_rate ? parseFloat(form.hourly_rate.replace(",", ".")) : null,
+        hourly_rate: parsedRate,
       }),
     });
     if (!res.ok) {
@@ -153,7 +159,21 @@ export function AddWorker({ sites, companyId, actorId }: { sites: Site[]; compan
           <option value="">Esialgne objekt (valikuline)</option>
           {sites.filter((site) => site.status === "active").map((site) => <option key={site.id} value={site.id}>{site.name}</option>)}
         </select>
-        <input className={input} inputMode="decimal" placeholder="Tunnitasu (valikuline)" value={form.hourly_rate} onChange={(e) => setForm({ ...form, hourly_rate: e.target.value })} />
+        <label className="block">
+          <span className="mb-1 block text-xs text-muted">Hinna tüüp</span>
+          <select className={input} value={form.pricing_type} onChange={(e) => setForm({ ...form, pricing_type: e.target.value as PricingType, pricing_unit: e.target.value === "area" ? "m²" : form.pricing_unit })}>
+            <option value="hourly">Tunnipõhine</option>
+            <option value="area">m² põhine</option>
+            <option value="quantity">Kogusepõhine</option>
+          </select>
+        </label>
+        {form.pricing_type === "quantity" && (
+          <input className={input} maxLength={24} placeholder="Ühik (nt tk, kompl, kast)" value={form.pricing_unit} onChange={(e) => setForm({ ...form, pricing_unit: e.target.value })} />
+        )}
+        <div className="relative">
+          <input className={`${input} pr-20`} inputMode="decimal" placeholder="Hind (valikuline)" value={form.hourly_rate} onChange={(e) => setForm({ ...form, hourly_rate: e.target.value })} />
+          <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted">€/{pricingUnit(form.pricing_type, form.pricing_unit)}</span>
+        </div>
         <div className="grid gap-2 sm:grid-cols-2">
           <label className="cursor-pointer rounded-lg border border-border bg-bg px-3 py-2 text-sm hover:border-signal">
             <span className="block text-xs text-muted">Profiilifoto</span>

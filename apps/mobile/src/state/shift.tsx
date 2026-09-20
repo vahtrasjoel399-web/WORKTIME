@@ -15,6 +15,7 @@ import { flush } from "@/lib/sync";
 import { elapsedSeconds } from "@/lib/time";
 import { supabase } from "@/lib/supabase";
 import type { Profile } from "./session";
+import { pricingTotal } from "@/lib/earnings";
 
 export type Phase = "idle" | "running" | "onBreak";
 
@@ -25,6 +26,7 @@ export interface ShiftView {
   gps: "pending" | "confirmed" | null;
   busy: boolean;
   lastSummarySeconds: number | null; // for the finish summary card
+  lastSummaryAmount: number | null;
   error: string | null;
 }
 
@@ -46,6 +48,7 @@ export function useShiftController(profile: Profile | null) {
     gps: null,
     busy: false,
     lastSummarySeconds: null,
+    lastSummaryAmount: null,
     error: null,
   });
   const breakStartRef = useRef<number | null>(null);
@@ -117,6 +120,9 @@ export function useShiftController(profile: Profile | null) {
         start_accuracy_m: fix.accuracy_m,
         start_address: fix.address,
         break_seconds: 0,
+        pricing_type: profile.pricing_type ?? "hourly",
+        pricing_rate: profile.pricing_type === "hourly" ? (profile.hourly_rate ?? profile.self_hourly_rate) : profile.hourly_rate,
+        unit: profile.pricing_type === "area" ? "m²" : profile.pricing_unit,
       });
       breakAccumRef.current = 0;
       setState((s) => ({
@@ -140,7 +146,7 @@ export function useShiftController(profile: Profile | null) {
     }
   }, [profile]);
 
-  const finish = useCallback(async () => {
+  const finish = useCallback(async (quantity: number | null = null) => {
     if (!state.shift || operationInFlightRef.current) return;
     operationInFlightRef.current = true;
     setState((s) => ({ ...s, busy: true, gps: "pending", error: null }));
@@ -165,6 +171,13 @@ export function useShiftController(profile: Profile | null) {
         breakStartRef.current = null;
       }
       const endedAt = new Date().toISOString();
+      const worked = elapsedSeconds(state.shift.started_at, breakAccumRef.current, Date.parse(endedAt));
+      const calculatedTotal = pricingTotal(
+        state.shift.pricing_type ?? "hourly",
+        state.shift.pricing_rate,
+        worked,
+        quantity,
+      );
       await dbEndShift(state.shift.local_id, {
         ended_at: endedAt,
         end_lat: fix.lat,
@@ -172,8 +185,9 @@ export function useShiftController(profile: Profile | null) {
         end_accuracy_m: fix.accuracy_m,
         end_address: fix.address,
         break_seconds: breakAccumRef.current,
+        quantity: state.shift.pricing_type === "hourly" ? null : quantity,
+        calculated_total: calculatedTotal,
       });
-      const worked = elapsedSeconds(state.shift.started_at, breakAccumRef.current, Date.parse(endedAt));
       setState((s) => ({
         ...s,
         phase: "idle",
@@ -182,6 +196,7 @@ export function useShiftController(profile: Profile | null) {
         gps: null,
         busy: false,
         lastSummarySeconds: worked,
+        lastSummaryAmount: calculatedTotal,
       }));
       void flush();
     } catch (e: any) {
@@ -220,7 +235,7 @@ export function useShiftController(profile: Profile | null) {
     }
   }, [state.phase, state.shift]);
 
-  const clearSummary = useCallback(() => setState((s) => ({ ...s, lastSummarySeconds: null })), []);
+  const clearSummary = useCallback(() => setState((s) => ({ ...s, lastSummarySeconds: null, lastSummaryAmount: null })), []);
 
   return { state, start, finish, toggleBreak, clearSummary };
 }

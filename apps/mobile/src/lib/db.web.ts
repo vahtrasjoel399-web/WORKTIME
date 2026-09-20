@@ -21,6 +21,11 @@ export interface LocalShift {
   end_accuracy_m: number | null;
   end_address: string | null;
   break_seconds: number;
+  pricing_type: "hourly" | "area" | "quantity";
+  pricing_rate: number | null;
+  quantity: number | null;
+  unit: string | null;
+  calculated_total: number | null;
   status: "open" | "closed";
   synced: number;
 }
@@ -76,7 +81,7 @@ export async function getOpenBreak(shiftLocalId: string): Promise<LocalBreak | n
 export async function startShift(
   input: Omit<
     LocalShift,
-    "local_id" | "remote_id" | "synced" | "status" | "ended_at" | "end_lat" | "end_lng" | "end_accuracy_m" | "end_address"
+    "local_id" | "remote_id" | "synced" | "status" | "ended_at" | "end_lat" | "end_lng" | "end_accuracy_m" | "end_address" | "quantity" | "calculated_total"
   >,
 ): Promise<LocalShift> {
   const rows = await readShifts();
@@ -90,6 +95,8 @@ export async function startShift(
     end_address: null,
     status: "open",
     synced: 0,
+    quantity: null,
+    calculated_total: null,
     ...input,
   };
   rows.push(row);
@@ -99,7 +106,7 @@ export async function startShift(
 
 export async function endShift(
   localId: string,
-  end: { ended_at: string; end_lat: number | null; end_lng: number | null; end_accuracy_m: number | null; end_address: string | null; break_seconds: number },
+  end: { ended_at: string; end_lat: number | null; end_lng: number | null; end_accuracy_m: number | null; end_address: string | null; break_seconds: number; quantity: number | null; calculated_total: number | null },
 ): Promise<void> {
   const rows = await readShifts();
   const s = rows.find((r) => r.local_id === localId);
@@ -182,6 +189,11 @@ export async function upsertFromServer(serverRows: Partial<LocalShift>[]): Promi
         started_at: r.started_at!,
         ended_at: r.ended_at ?? null,
         break_seconds: r.break_seconds ?? 0,
+        pricing_type: r.pricing_type ?? "hourly",
+        pricing_rate: r.pricing_rate ?? null,
+        quantity: r.quantity ?? null,
+        unit: r.unit ?? null,
+        calculated_total: r.calculated_total ?? null,
         status: r.status!,
         synced: 1,
       });
@@ -203,6 +215,11 @@ export async function upsertFromServer(serverRows: Partial<LocalShift>[]): Promi
         end_accuracy_m: r.end_accuracy_m ?? null,
         end_address: r.end_address ?? null,
         break_seconds: r.break_seconds ?? 0,
+        pricing_type: r.pricing_type ?? "hourly",
+        pricing_rate: r.pricing_rate ?? null,
+        quantity: r.quantity ?? null,
+        unit: r.unit ?? null,
+        calculated_total: r.calculated_total ?? null,
         status: (r.status as "open" | "closed") ?? "closed",
         synced: 1,
       });

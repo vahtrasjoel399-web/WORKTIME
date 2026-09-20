@@ -17,10 +17,12 @@ export default function Settings() {
   const [target, setTarget] = useState(String(profile?.target_shift_hours ?? 8));
 
   const companyRate = profile?.hourly_rate ?? null;
+  const pricingType = profile?.pricing_type ?? "hourly";
+  const unit = pricingType === "hourly" ? "h" : pricingType === "area" ? "m²" : profile?.pricing_unit ?? "ühik";
 
   function saveRate() {
     const v = parseFloat(rate.replace(",", "."));
-    if (!isNaN(v)) updateProfile({ self_hourly_rate: v });
+    if (!isNaN(v) && v >= 0) updateProfile({ self_hourly_rate: v });
   }
   function saveTarget() {
     const v = parseFloat(target.replace(",", "."));
@@ -39,15 +41,15 @@ export default function Settings() {
 
         {/* rate */}
         <Card>
-          <Muted>{t("settings.rate")}</Muted>
+          <Muted>Hinna tüüp: {pricingType === "hourly" ? "Tunnipõhine" : pricingType === "area" ? "m² põhine" : "Kogusepõhine"}</Muted>
           {companyRate != null ? (
             <View style={{ marginTop: space(2) }}>
               <Body style={{ fontFamily: font.mono, fontSize: 22 }}>
-                {companyRate.toFixed(2)} {profile?.currency}/h
+                {companyRate.toFixed(2)} {profile?.currency}/{unit}
               </Body>
               <Muted style={{ marginTop: 4 }}>{t("settings.rateFromCompany")}</Muted>
             </View>
-          ) : (
+          ) : pricingType === "hourly" ? (
             <View style={{ flexDirection: "row", gap: space(3), alignItems: "center", marginTop: space(2) }}>
               <TextInput
                 style={[inputStyle, { flex: 1 }]}
@@ -60,7 +62,7 @@ export default function Settings() {
               />
               <Body style={{ color: theme.textMuted }}>{profile?.currency}/h</Body>
             </View>
-          )}
+          ) : <Muted style={{ marginTop: space(2) }}>Tööandja pole hinda määranud.</Muted>}
         </Card>
 
         {/* target hours */}

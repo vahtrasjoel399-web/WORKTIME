@@ -5,11 +5,14 @@ import { supabaseBrowser } from "@/lib/supabase-browser";
 import type { Profile } from "@/lib/types";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { useToast } from "./ToastProvider";
+import { pricingUnit, validPricingConfig, type PricingType } from "@/lib/pricing";
 
 export function WorkerAdmin({ worker }: { worker: Profile }) {
   const supabase = supabaseBrowser();
   const router = useRouter();
   const [rate, setRate] = useState(worker.hourly_rate != null ? String(worker.hourly_rate) : "");
+  const [pricingType, setPricingType] = useState<PricingType>(worker.pricing_type ?? "hourly");
+  const [unit, setUnit] = useState(worker.pricing_unit ?? "");
   const [saved, setSaved] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -17,10 +20,14 @@ export function WorkerAdmin({ worker }: { worker: Profile }) {
 
   async function save() {
     const parsed = rate.trim() === "" ? null : parseFloat(rate.replace(",", "."));
+    const validationError = validPricingConfig(pricingType, parsed, unit);
+    if (validationError) return toast(validationError, "error");
     const { error } = await supabase
       .from("profiles")
       .update({
         hourly_rate: parsed,
+        pricing_type: pricingType,
+        pricing_unit: pricingType === "quantity" ? unit.trim() : null,
       })
       .eq("id", worker.id);
     if (error) return toast("Salvestamine ebaõnnestus.", "error");
@@ -59,11 +66,32 @@ export function WorkerAdmin({ worker }: { worker: Profile }) {
       <h3 className="font-display text-lg font-semibold">Haldus</h3>
 
       <label className="block">
-        <span className="text-sm text-muted">Tunnitasu ({worker.currency}/h)</span>
+        <span className="text-sm text-muted">Hinna tüüp</span>
+        <select
+          value={pricingType}
+          onChange={(event) => setPricingType(event.target.value as PricingType)}
+          className="mt-1 w-full rounded-lg border border-border bg-bg px-3 py-2 outline-none focus:border-signal"
+        >
+          <option value="hourly">Tunnipõhine</option>
+          <option value="area">m² põhine</option>
+          <option value="quantity">Kogusepõhine</option>
+        </select>
+      </label>
+
+      {pricingType === "quantity" && (
+        <label className="block">
+          <span className="text-sm text-muted">Ühik</span>
+          <input value={unit} onChange={(event) => setUnit(event.target.value)} maxLength={24} placeholder="nt tk, kompl, kast, objekt" className="mt-1 w-full rounded-lg border border-border bg-bg px-3 py-2 outline-none focus:border-signal" />
+        </label>
+      )}
+
+      <label className="block">
+        <span className="text-sm text-muted">Hind ({worker.currency}/{pricingUnit(pricingType, unit)})</span>
         <input
           value={rate}
           onChange={(e) => setRate(e.target.value)}
-          placeholder="määramata → töötaja isiklik hinnang"
+          inputMode="decimal"
+          placeholder={pricingType === "hourly" ? "määramata → töötaja isiklik hinnang" : "0.00"}
           className="mt-1 w-full rounded-lg border border-border bg-bg px-3 py-2 outline-none focus:border-signal"
         />
       </label>

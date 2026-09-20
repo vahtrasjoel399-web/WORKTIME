@@ -13,6 +13,8 @@ export interface Profile {
   is_approved: boolean;
   locale: string;
   hourly_rate: number | null;
+  pricing_type: "hourly" | "area" | "quantity";
+  pricing_unit: string | null;
   self_hourly_rate: number | null;
   currency: string;
   target_shift_hours: number;
@@ -72,6 +74,11 @@ export interface ShiftReport {
   break_seconds: number;
   worked_seconds: number | null;
   worked_hours: number | null;
+  pricing_type: "hourly" | "area" | "quantity";
+  pricing_rate: number | null;
+  quantity: number | null;
+  unit: string | null;
+  calculated_total: number | null;
   work_date: string;
   status: "open" | "closed";
   source: "app" | "manual";

@@ -2,6 +2,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase-browser";
+import { calculatePricingTotal, pricingUnit, type PricingType } from "@/lib/pricing";
+import { money } from "@/lib/format";
 
 interface ShiftLite {
   id: string;
@@ -9,6 +11,10 @@ interface ShiftLite {
   ended_at: string | null;
   break_seconds: number;
   status: "open" | "closed";
+  pricing_type: PricingType;
+  pricing_rate: number | null;
+  quantity: number | null;
+  unit: string | null;
 }
 
 // Manual correction with audit trail: every changed field is written to shift_edits
@@ -41,12 +47,19 @@ export function EditShift({ shift }: { shift: ShiftLite }) {
   const [start, setStart] = useState(toLocalInput(shift.started_at));
   const [end, setEnd] = useState(toLocalInput(shift.ended_at));
   const [breakMin, setBreakMin] = useState(String(Math.round(shift.break_seconds / 60)));
+  const [pricingType, setPricingType] = useState<PricingType>(shift.pricing_type ?? "hourly");
+  const [pricingRate, setPricingRate] = useState(shift.pricing_rate == null ? "" : String(shift.pricing_rate));
+  const [quantity, setQuantity] = useState(shift.quantity == null ? "" : String(shift.quantity));
+  const [unit, setUnit] = useState(shift.unit ?? "");
   const [busy, setBusy] = useState(false);
 
   const newBreak = Math.max(0, parseInt(breakMin || "0", 10)) * 60;
   const before = workedHours(shift.started_at, shift.ended_at, shift.break_seconds);
   const after = workedHours(fromLocalInput(start), fromLocalInput(end), newBreak);
   const changed = after != null && before != null && Math.abs(after - before) > 0.004;
+  const parsedRate = pricingRate.trim() === "" ? null : Number(pricingRate.replace(",", "."));
+  const parsedQuantity = quantity.trim() === "" ? null : Number(quantity.replace(",", "."));
+  const previewTotal = calculatePricingTotal({ pricingType, rate: parsedRate, workedSeconds: after == null ? null : Math.round(after * 3600), quantity: parsedQuantity });
 
   // Add or remove worked time by moving the end of the shift. Never past the
   // start — an admin trimming hours can zero a shift but not invert it.
@@ -59,6 +72,9 @@ export function EditShift({ shift }: { shift: ShiftLite }) {
   }
 
   async function save() {
+    if ((parsedRate != null && (!Number.isFinite(parsedRate) || parsedRate < 0)) || (pricingType !== "hourly" && parsedRate == null)) return;
+    if (pricingType !== "hourly" && (parsedQuantity == null || !Number.isFinite(parsedQuantity) || parsedQuantity < 0)) return;
+    if (pricingType === "quantity" && !unit.trim()) return;
     setBusy(true);
     const {
       data: { user },
@@ -73,6 +89,11 @@ export function EditShift({ shift }: { shift: ShiftLite }) {
     if (newEnd !== shift.ended_at) edits.push({ field: "ended_at", old_value: shift.ended_at, new_value: newEnd });
     if (newBreak !== shift.break_seconds)
       edits.push({ field: "break_seconds", old_value: String(shift.break_seconds), new_value: String(newBreak) });
+    if (pricingType !== shift.pricing_type) edits.push({ field: "pricing_type", old_value: shift.pricing_type, new_value: pricingType });
+    if (parsedRate !== shift.pricing_rate) edits.push({ field: "pricing_rate", old_value: shift.pricing_rate == null ? null : String(shift.pricing_rate), new_value: parsedRate == null ? null : String(parsedRate) });
+    if (parsedQuantity !== shift.quantity) edits.push({ field: "quantity", old_value: shift.quantity == null ? null : String(shift.quantity), new_value: parsedQuantity == null ? null : String(parsedQuantity) });
+    const nextUnit = pricingType === "hourly" ? null : pricingType === "area" ? "m²" : unit.trim();
+    if (nextUnit !== shift.unit) edits.push({ field: "unit", old_value: shift.unit, new_value: nextUnit });
 
     if (edits.length > 0) {
       await supabase
@@ -84,6 +105,10 @@ export function EditShift({ shift }: { shift: ShiftLite }) {
           status: newEnd ? "closed" : "open",
           source: "manual",
           is_stale: false,
+          pricing_type: pricingType,
+          pricing_rate: parsedRate,
+          quantity: pricingType === "hourly" ? null : parsedQuantity,
+          unit: nextUnit,
         })
         .eq("id", shift.id);
       await supabase.from("shift_edits").insert(
@@ -142,6 +167,30 @@ export function EditShift({ shift }: { shift: ShiftLite }) {
 
       <div className="space-y-2 border-t border-border pt-2">
         <label className="flex items-center justify-between gap-2">
+          <span className="text-muted">Hinna tüüp</span>
+          <select value={pricingType} onChange={(event) => setPricingType(event.target.value as PricingType)} className="rounded border border-border bg-surface px-2 py-1">
+            <option value="hourly">Tunnipõhine</option>
+            <option value="area">m² põhine</option>
+            <option value="quantity">Kogusepõhine</option>
+          </select>
+        </label>
+        {pricingType === "quantity" && (
+          <label className="flex items-center justify-between gap-2">
+            <span className="text-muted">Ühik</span>
+            <input value={unit} onChange={(event) => setUnit(event.target.value)} maxLength={24} className="w-28 rounded border border-border bg-surface px-2 py-1" />
+          </label>
+        )}
+        <label className="flex items-center justify-between gap-2">
+          <span className="text-muted">Hind €/{pricingUnit(pricingType, unit)}</span>
+          <input inputMode="decimal" value={pricingRate} onChange={(event) => setPricingRate(event.target.value)} className="w-28 rounded border border-border bg-surface px-2 py-1" />
+        </label>
+        {pricingType !== "hourly" && (
+          <label className="flex items-center justify-between gap-2">
+            <span className="text-muted">Tehtud kogus</span>
+            <input inputMode="decimal" value={quantity} onChange={(event) => setQuantity(event.target.value)} className="w-28 rounded border border-border bg-surface px-2 py-1" />
+          </label>
+        )}
+        <label className="flex items-center justify-between gap-2">
           <span className="text-muted">Algus</span>
           <input type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)} className="rounded border border-border bg-surface px-2 py-1" />
         </label>
@@ -154,6 +203,8 @@ export function EditShift({ shift }: { shift: ShiftLite }) {
           <input type="number" value={breakMin} onChange={(e) => setBreakMin(e.target.value)} className="w-24 rounded border border-border bg-surface px-2 py-1" />
         </label>
       </div>
+
+      <div className="text-right text-sm"><span className="text-muted">Kokku: </span><b className="tabular text-signal">{previewTotal == null ? "—" : money(previewTotal)}</b></div>
 
       <div className="flex gap-2">
         <button onClick={save} disabled={busy} className="flex-1 rounded bg-text py-1.5 font-medium text-bg disabled:opacity-60">

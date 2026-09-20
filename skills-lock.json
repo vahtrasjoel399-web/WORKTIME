@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "frontend-production-shadcn": {
+      "source": "wzx2002/codex-frontend-skill",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "1102705f5efee502dcf17870819c4c04baf70c41110a4387df4d8a88224c124d"
+    },
+    "ui-ux": {
+      "source": "atuizz/codex-ui-ux-skill",
+      "sourceType": "github",
+      "skillPath": "ui-ux/SKILL.md",
+      "computedHash": "b0036c59ae1246c487eee938f5c30136efa2513406a384f67045cbc12360f4da"
+    }
+  }
+}

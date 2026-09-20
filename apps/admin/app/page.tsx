@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase-server";
 import { getProfile } from "@/lib/auth";
 import { hours1, money } from "@/lib/format";
-import { resolveEarnings } from "@/lib/report";
+import { shiftTotal } from "@/lib/pricing";
 import { isoWeek, parseYmd, weekRange } from "@/lib/week";
 import { AddWorker } from "@/components/AddWorker";
 import { PendingWorkers } from "@/components/PendingWorkers";
@@ -42,7 +42,7 @@ export default async function WorkersPage() {
         .eq("status", "open"),
       supabase
         .from("shifts")
-        .select("user_id, worked_seconds")
+        .select("user_id, worked_seconds, pricing_type, pricing_rate, quantity, calculated_total")
         .eq("status", "closed")
         .gte("started_at", from)
         .lt("started_at", to),
@@ -57,6 +57,7 @@ export default async function WorkersPage() {
   const siteList = (sites ?? []) as Site[];
   const openBy = new Map((openShifts ?? []).map((o) => [o.user_id, o]));
   const weekSeconds = new Map<string, number>();
+  const weekEarned = new Map<string, number>();
   for (const s of weekShifts ?? []) {
     weekSeconds.set(s.user_id, (weekSeconds.get(s.user_id) ?? 0) + (s.worked_seconds ?? 0));
   }
@@ -67,12 +68,12 @@ export default async function WorkersPage() {
   const onShift = list.filter((w) => openBy.has(w.id)).length;
 
   // gross owed for the running week, per worker and in total
-  const weekEarned = new Map<string, number>();
   for (const w of list) {
-    weekEarned.set(
-      w.id,
-      resolveEarnings(weekSeconds.get(w.id) ?? 0, w.hourly_rate, w.self_hourly_rate).amount,
-    );
+    const fallbackRate = w.pricing_type === "hourly" ? w.hourly_rate ?? w.self_hourly_rate : w.hourly_rate;
+    const amount = (weekShifts ?? [])
+      .filter((shift) => shift.user_id === w.id)
+      .reduce((sum, shift) => sum + shiftTotal(shift, fallbackRate), 0);
+    weekEarned.set(w.id, amount);
   }
   const payroll = [...weekEarned.values()].reduce((a, b) => a + b, 0);
   const weekHours = [...weekSeconds.values()].reduce((a, b) => a + b, 0);

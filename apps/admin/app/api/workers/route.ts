@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer, supabaseService } from "@/lib/supabase-server";
 import { emailSuggestion, isValidEmail, normalizeEmail } from "@/lib/email";
+import type { PricingType } from "@/lib/pricing";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +29,7 @@ export async function POST(req: NextRequest) {
   if (!me || me.role !== "admin") return new NextResponse("Forbidden", { status: 403 });
 
   const body = await req.json().catch(() => null);
-  const { first_name, last_name, email, phone, position, initial_site_id, hourly_rate, locale } = body ?? {};
+  const { first_name, last_name, email, phone, position, initial_site_id, hourly_rate, pricing_type, pricing_unit, locale } = body ?? {};
   const cleanEmail = typeof email === "string" ? normalizeEmail(email) : "";
   const cleanFirst = typeof first_name === "string" ? first_name.trim() : "";
   const cleanLast = typeof last_name === "string" ? last_name.trim() : "";
@@ -50,6 +51,11 @@ export async function POST(req: NextRequest) {
   const rate = hourly_rate == null || hourly_rate === "" ? null : Number(hourly_rate);
   if (rate != null && (!Number.isFinite(rate) || rate < 0 || rate > 10000)) {
     return new NextResponse("Invalid hourly rate", { status: 400 });
+  }
+  const pricingType: PricingType = ["hourly", "area", "quantity"].includes(pricing_type) ? pricing_type : "hourly";
+  const pricingUnit = typeof pricing_unit === "string" ? pricing_unit.trim() : "";
+  if (pricingType === "quantity" && (!pricingUnit || pricingUnit.length > 24)) {
+    return new NextResponse("Quantity pricing requires a valid unit", { status: 400 });
   }
 
   if (initialSiteId) {
@@ -86,6 +92,8 @@ export async function POST(req: NextRequest) {
     is_approved: true,
     locale: ["et", "ru", "en", "fi"].includes(locale) ? locale : "et",
     hourly_rate: rate,
+    pricing_type: pricingType,
+    pricing_unit: pricingType === "quantity" ? pricingUnit : null,
   });
   if (profErr) {
     await service.auth.admin.deleteUser(created.user.id); // rollback
