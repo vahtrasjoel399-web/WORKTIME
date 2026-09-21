@@ -132,7 +132,7 @@ export function EditShift({ shift }: { shift: ShiftLite }) {
       {/* quick correction — add or take away worked time */}
       {shift.status === "closed" && (
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-1 min-[380px]:flex-row min-[380px]:items-center min-[380px]:justify-between">
             <span className="text-muted">Lisa või võta tunde</span>
             <span className="tabular">
               {before?.toFixed(1)} h
@@ -166,41 +166,41 @@ export function EditShift({ shift }: { shift: ShiftLite }) {
       )}
 
       <div className="space-y-2 border-t border-border pt-2">
-        <label className="flex items-center justify-between gap-2">
+        <label className="grid gap-1 min-[380px]:grid-cols-[minmax(0,1fr)_minmax(9rem,auto)] min-[380px]:items-center min-[380px]:gap-2">
           <span className="text-muted">Hinna tüüp</span>
-          <select value={pricingType} onChange={(event) => setPricingType(event.target.value as PricingType)} className="rounded border border-border bg-surface px-2 py-1">
+          <select value={pricingType} onChange={(event) => setPricingType(event.target.value as PricingType)} className="control min-w-0 bg-surface px-2 py-1">
             <option value="hourly">Tunnipõhine</option>
             <option value="area">m² põhine</option>
             <option value="quantity">Kogusepõhine</option>
           </select>
         </label>
         {pricingType === "quantity" && (
-          <label className="flex items-center justify-between gap-2">
+          <label className="grid gap-1 min-[380px]:grid-cols-[minmax(0,1fr)_minmax(9rem,auto)] min-[380px]:items-center min-[380px]:gap-2">
             <span className="text-muted">Ühik</span>
-            <input value={unit} onChange={(event) => setUnit(event.target.value)} maxLength={24} className="w-28 rounded border border-border bg-surface px-2 py-1" />
+            <input value={unit} onChange={(event) => setUnit(event.target.value)} maxLength={24} className="control min-w-0 bg-surface px-2 py-1 min-[380px]:w-36" />
           </label>
         )}
-        <label className="flex items-center justify-between gap-2">
+        <label className="grid gap-1 min-[380px]:grid-cols-[minmax(0,1fr)_minmax(9rem,auto)] min-[380px]:items-center min-[380px]:gap-2">
           <span className="text-muted">Hind €/{pricingUnit(pricingType, unit)}</span>
-          <input inputMode="decimal" value={pricingRate} onChange={(event) => setPricingRate(event.target.value)} className="w-28 rounded border border-border bg-surface px-2 py-1" />
+          <input inputMode="decimal" value={pricingRate} onChange={(event) => setPricingRate(event.target.value)} className="control min-w-0 bg-surface px-2 py-1 min-[380px]:w-36" />
         </label>
         {pricingType !== "hourly" && (
-          <label className="flex items-center justify-between gap-2">
+          <label className="grid gap-1 min-[380px]:grid-cols-[minmax(0,1fr)_minmax(9rem,auto)] min-[380px]:items-center min-[380px]:gap-2">
             <span className="text-muted">Tehtud kogus</span>
-            <input inputMode="decimal" value={quantity} onChange={(event) => setQuantity(event.target.value)} className="w-28 rounded border border-border bg-surface px-2 py-1" />
+            <input inputMode="decimal" value={quantity} onChange={(event) => setQuantity(event.target.value)} className="control min-w-0 bg-surface px-2 py-1 min-[380px]:w-36" />
           </label>
         )}
-        <label className="flex items-center justify-between gap-2">
+        <label className="grid gap-1 min-[380px]:grid-cols-[minmax(0,1fr)_minmax(9rem,auto)] min-[380px]:items-center min-[380px]:gap-2">
           <span className="text-muted">Algus</span>
-          <input type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)} className="rounded border border-border bg-surface px-2 py-1" />
+          <input type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)} className="control min-w-0 bg-surface px-2 py-1" />
         </label>
-        <label className="flex items-center justify-between gap-2">
+        <label className="grid gap-1 min-[380px]:grid-cols-[minmax(0,1fr)_minmax(9rem,auto)] min-[380px]:items-center min-[380px]:gap-2">
           <span className="text-muted">Lõpp</span>
-          <input type="datetime-local" value={end} onChange={(e) => setEnd(e.target.value)} className="rounded border border-border bg-surface px-2 py-1" />
+          <input type="datetime-local" value={end} onChange={(e) => setEnd(e.target.value)} className="control min-w-0 bg-surface px-2 py-1" />
         </label>
-        <label className="flex items-center justify-between gap-2">
+        <label className="grid gap-1 min-[380px]:grid-cols-[minmax(0,1fr)_minmax(9rem,auto)] min-[380px]:items-center min-[380px]:gap-2">
           <span className="text-muted">Paus (min)</span>
-          <input type="number" value={breakMin} onChange={(e) => setBreakMin(e.target.value)} className="w-24 rounded border border-border bg-surface px-2 py-1" />
+          <input type="number" value={breakMin} onChange={(e) => setBreakMin(e.target.value)} className="control min-w-0 bg-surface px-2 py-1 min-[380px]:w-36" />
         </label>
       </div>
 

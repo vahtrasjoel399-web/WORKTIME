@@ -102,7 +102,7 @@ export function WorkerAdmin({ worker }: { worker: Profile }) {
 
       <div className="border-t border-border pt-4">
         <p className="mb-2 text-xs text-muted">GDPR — õigus andmetele ja kustutamisele</p>
-        <div className="flex gap-2">
+        <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-2">
           <button
             onClick={exportData}
             className="btn-secondary flex-1"

@@ -54,11 +54,11 @@ export function EmployeeAssignmentManager({
           ))}
         </select>
       </label>
-      <div className="flex flex-wrap gap-2">
+      <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2">
         <button
           onClick={() => void updateAssignment(siteId)}
           disabled={busy || !siteId || !selectionChanged}
-          className="btn-primary flex-1"
+          className="btn-primary w-full"
         >
           {busy ? "Salvestan…" : currentAssignment ? "Teisalda töötaja" : "Määra objekt"}
         </button>
@@ -66,7 +66,7 @@ export function EmployeeAssignmentManager({
           <button
             onClick={() => setConfirmRemove(true)}
             disabled={busy}
-            className="btn-danger"
+            className="btn-danger w-full"
           >
             Eemalda objektilt
           </button>

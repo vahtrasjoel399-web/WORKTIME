@@ -167,8 +167,8 @@ export function EmployeeDirectory({ workers, sites, openShifts, assignments, wee
 
               <div className="mt-3 grid gap-2 rounded-xl bg-bg p-3 text-sm">
                 <div><span className="text-muted">Objekt: </span><span className="font-medium">{assignedSite?.name ?? "Määramata"}</span></div>
-                {worker.phone && <div className="truncate"><span className="text-muted">Tel: </span>{worker.phone}</div>}
-                {worker.email && <div className="truncate"><span className="text-muted">E-post: </span>{worker.email}</div>}
+                {worker.phone && <div className="break-words"><span className="text-muted">Tel: </span>{worker.phone}</div>}
+                {worker.email && <div className="break-all"><span className="text-muted">E-post: </span>{worker.email}</div>}
               </div>
 
               <div className="mt-4 grid grid-cols-2 gap-3 border-t border-border pt-3">

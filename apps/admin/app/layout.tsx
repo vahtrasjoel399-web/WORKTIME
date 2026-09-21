@@ -24,7 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <I18nProvider>
           <ToastProvider>
             <Nav />
-            <main className="mx-auto w-full max-w-7xl overflow-x-hidden px-4 py-5 pb-24 sm:px-6 sm:py-7 lg:px-8 lg:py-8">{children}</main>
+            <main className="app-main mx-auto w-full max-w-7xl overflow-x-hidden px-4 py-5 pb-24 sm:px-6 sm:py-7 lg:px-8 lg:py-8">{children}</main>
           </ToastProvider>
         </I18nProvider>
       </body>

@@ -166,7 +166,7 @@ export function AddShift({
           </label>
         )}
       </div>
-      <div className="flex flex-wrap items-end gap-2">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <label>
           <span className="block text-xs text-muted">Kuupäev</span>
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={`mt-1 ${input}`} />
@@ -181,9 +181,9 @@ export function AddShift({
         </label>
         <label>
           <span className="block text-xs text-muted">Paus (min)</span>
-          <input type="number" value={breakMin} onChange={(e) => setBreakMin(e.target.value)} className={`mt-1 w-20 ${input}`} />
+          <input type="number" value={breakMin} onChange={(e) => setBreakMin(e.target.value)} className={`mt-1 ${input}`} />
         </label>
-        <div className="pb-1.5">
+        <div className="col-span-2 rounded-lg bg-bg px-3 py-2 sm:col-span-4">
           <span className="block text-xs text-muted">Tunnid</span>
           <span className="tabular font-semibold text-signal">{hours.toFixed(1)} h</span>
         </div>
@@ -193,7 +193,7 @@ export function AddShift({
         <span className="tabular font-semibold text-signal">{previewTotal == null ? "—" : money(previewTotal, currency)}</span>
       </div>
       {err && <p className="text-alert">{err}</p>}
-      <div className="flex gap-2">
+      <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-2">
         <button onClick={save} disabled={busy} className="btn-primary">
           {busy ? "Lisan…" : "Lisa töö"}
         </button>

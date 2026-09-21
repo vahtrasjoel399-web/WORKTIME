@@ -87,7 +87,7 @@ export function EmployeeDocuments({
         <p className="mt-1 text-xs text-muted">Privaatsed failid · ligipääs ainult ettevõtte administraatoril</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-2">
         <label className="btn-primary cursor-pointer">
           {uploading === "cv" ? "Laadin…" : cvExists ? "Asenda CV" : "Lisa CV"}
           <input
@@ -120,7 +120,7 @@ export function EmployeeDocuments({
       <div className="space-y-2">
         {documents.length === 0 && <p className="rounded-lg bg-bg p-3 text-sm text-muted">Dokumente pole lisatud.</p>}
         {documents.map((document, index) => (
-          <div key={document.id} className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
+          <div key={document.id} className="flex flex-col gap-3 rounded-lg border border-border p-3 min-[420px]:flex-row min-[420px]:items-center min-[420px]:justify-between">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase ${document.document_type === "cv" ? "bg-signal/10 text-signal" : "bg-bg text-muted"}`}>
@@ -133,7 +133,7 @@ export function EmployeeDocuments({
                 {document.size_bytes != null && ` · ${fileSize(document.size_bytes)}`}
               </div>
             </div>
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="grid shrink-0 grid-cols-2 gap-2 min-[420px]:flex min-[420px]:items-center">
               {document.signed_url ? (
                 <a href={document.signed_url} target="_blank" rel="noreferrer" className="rounded-lg border border-border px-3 py-2 text-xs font-medium hover:border-signal">
                   Ava

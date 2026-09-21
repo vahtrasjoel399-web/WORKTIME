@@ -22,7 +22,7 @@ export function PageHeader({
         <h1 className="page-title">{title}</h1>
         {description && <div className="page-description">{description}</div>}
       </div>
-      {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
+      {actions && <div className="grid w-full grid-cols-1 gap-2 min-[380px]:grid-cols-2 sm:flex sm:w-auto sm:shrink-0 sm:flex-wrap sm:items-center">{actions}</div>}
     </header>
   );
 }

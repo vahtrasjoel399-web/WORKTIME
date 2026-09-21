@@ -148,6 +148,7 @@ button, a { touch-action: manipulation; }
 @media (max-width: 639px) {
   input, select, textarea { font-size: 16px; }
   button, a { min-height: 44px; }
+  .app-main:has(.worker-home) { padding-bottom: max(1.25rem, env(safe-area-inset-bottom)); }
 }
 
 @media (prefers-reduced-motion: reduce) {

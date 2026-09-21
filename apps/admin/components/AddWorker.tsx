@@ -145,14 +145,14 @@ export function AddWorker({ sites, companyId, actorId }: { sites: Site[]; compan
     );
 
   return (
-    <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 p-4" onClick={() => setOpen(false)}>
-      <div role="dialog" aria-modal="true" aria-labelledby="add-worker-title" className="dialog-in max-h-[calc(100dvh-2rem)] w-full max-w-lg space-y-4 overflow-y-auto rounded-xl border border-border bg-surface p-5 shadow-2xl sm:p-6" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onClick={() => setOpen(false)}>
+      <div role="dialog" aria-modal="true" aria-labelledby="add-worker-title" className="dialog-in max-h-[92dvh] w-full max-w-lg space-y-4 overflow-y-auto overscroll-contain rounded-t-xl border border-border bg-surface p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:rounded-xl sm:p-6" onClick={(e) => e.stopPropagation()}>
         <div><h3 id="add-worker-title" className="font-display text-lg font-semibold">{sent ? "Konto loodud" : t("addUser")}</h3>{!sent && <p className="mt-1 text-sm text-muted">Vali ligipääsutase, sisesta andmed ja määra ajutine parool.</p>}</div>
         {sent ? (
           <>
             <p className="text-sm text-muted">Konto on aktiivne. Anna kasutajale e-post ja ajutine parool turvalise kanali kaudu. Esimesel sisselogimisel peab ta parooli muutma.</p>
             {uploadWarning && <p className="rounded-lg border border-alert/30 bg-alert/10 px-3 py-2 text-sm text-alert">{uploadWarning}</p>}
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-2">
               {createdId && createdRole === "worker" && <button onClick={() => router.push(`/workers/${createdId}`)} className="btn-secondary">Ava profiil</button>}
               <button onClick={() => { setOpen(false); setSent(false); setCreatedId(null); setUploadWarning(null); }} className="btn-primary">Valmis</button>
             </div>
@@ -160,7 +160,7 @@ export function AddWorker({ sites, companyId, actorId }: { sites: Site[]; compan
         ) : (<>
         <fieldset>
           <legend className="field-label">{t("userRole")}</legend>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-2">
             {(["worker", "accountant"] as const).map((role) => (
               <button
                 key={role}
@@ -218,7 +218,7 @@ export function AddWorker({ sites, companyId, actorId }: { sites: Site[]; compan
         </div>
         <p className="text-xs text-muted">Faili maksimaalne suurus on 10 MB.</p></>}
         {error && <p role="alert" className="rounded-lg border border-alert/30 bg-alert/10 px-3 py-2 text-sm text-alert">{error}</p>}
-        <div className="flex gap-2 pt-1">
+        <div className="grid grid-cols-1 gap-2 pt-1 min-[380px]:grid-cols-[minmax(0,1fr)_auto]">
           <button onClick={submit} disabled={busy} className="btn-primary flex-1">
             {busy ? "Loon kontot…" : t("createAccount")}
           </button>

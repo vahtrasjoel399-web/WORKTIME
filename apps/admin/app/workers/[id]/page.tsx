@@ -162,7 +162,10 @@ export default async function WorkerCard({
             {worker.first_name} {worker.last_name}
           </h1>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted"><span>{worker.position ?? "Amet määramata"}</span><StatusBadge tone={worker.is_active ? "live" : "neutral"}>{worker.is_active ? "Aktiivne" : "Mitteaktiivne"}</StatusBadge></div>
-          <p className="mt-1 truncate text-sm text-muted">{worker.email ?? "e-post puudub"} · {worker.phone ?? "telefon puudub"}</p>
+          <div className="mt-1 min-w-0 text-sm text-muted">
+            <p className="break-all sm:truncate">{worker.email ?? "e-post puudub"}</p>
+            <p className="mt-0.5 sm:mt-0">{worker.phone ?? "telefon puudub"}</p>
+          </div>
           </div>
         </div>
         <div className="panel min-w-44 px-4 py-3 text-left sm:text-right">
@@ -190,11 +193,11 @@ export default async function WorkerCard({
                 →
               </Link>
             </div>
-            <div className="grid grid-cols-8 gap-1 text-center text-xs text-muted">
+            <div className="grid grid-cols-7 gap-1 text-center text-xs text-muted sm:grid-cols-8">
               {["E", "T", "K", "N", "R", "L", "P"].map((d) => (
                 <div key={d} className="py-1">{d}</div>
               ))}
-              <div className="py-1 font-semibold text-signal">nädal</div>
+              <div className="hidden py-1 font-semibold text-signal sm:block">nädal</div>
               {calendarWeeks.map((wk, r) => (
                 <Fragment key={r}>
                   {wk.row.map((day, c) =>
@@ -214,10 +217,11 @@ export default async function WorkerCard({
                       </div>
                     ),
                   )}
-                  <div className={`aspect-square rounded-lg border p-1 ${wk.seconds ? "border-signal bg-signal/15" : "border-border"}`}>
-                    <div className="tabular text-xs font-semibold text-text">{wk.seconds ? hours1(wk.seconds) : "·"}</div>
+                  <div className={`col-span-7 mt-1 flex min-h-10 items-center justify-between rounded-lg border px-2 py-1 sm:col-span-1 sm:mt-0 sm:block sm:aspect-square sm:min-h-0 sm:p-1 ${wk.seconds ? "border-signal bg-signal/15" : "border-border"}`}>
+                    <div className="text-[10px] font-semibold uppercase tracking-wide text-muted sm:hidden">Nädal kokku</div>
+                    <div className="tabular text-xs font-semibold text-text">{wk.seconds ? `${hours1(wk.seconds)} h` : "·"}</div>
                     {wk.earned > 0 && (
-                      <div className="tabular text-[10px] font-semibold text-signal">
+                      <div className="tabular text-[10px] font-semibold text-signal sm:mt-0.5">
                         {money(wk.earned, worker.currency)}
                       </div>
                     )}
@@ -263,7 +267,7 @@ export default async function WorkerCard({
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                       <div className="font-medium">{dmy(s.started_at)}</div>
-                      <div className="tabular text-sm text-muted">
+                      <div className="tabular break-words text-sm text-muted">
                         {hm(s.started_at)} – {hm(s.ended_at)}
                         {s.break_seconds > 0 && <span> · paus {Math.round(s.break_seconds / 60)}m</span>}
                         <span> · {s.site_name ?? "objekt määramata"}</span>

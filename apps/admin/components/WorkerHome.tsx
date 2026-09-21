@@ -217,13 +217,13 @@ export function WorkerHome({
   const completionTotal = calculatePricingTotal({ pricingType: activePricingType, rate: activeRate, quantity: parsedCompleted });
 
   return (
-    <div className="mx-auto flex min-h-[85vh] max-w-md flex-col justify-between gap-6 py-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="font-display text-xl font-bold">{profile.first_name}</div>
+    <div className="worker-home mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-md flex-col justify-between gap-5 py-2 sm:min-h-[85vh] sm:gap-6 sm:py-6">
+      <div className="flex min-w-0 items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="truncate font-display text-xl font-bold">{profile.first_name}</div>
           <div className="text-sm text-muted">{active ? (phase === "onBreak" ? t("onBreak") : t("shiftRunning")) : t("notStarted")}</div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           {gps === "ok" && <span className="text-xs text-live">● GPS</span>}
           {gps === "getting" && <span className="text-xs text-muted">GPS…</span>}
           <button onClick={() => setShowSettings((s) => !s)} aria-label={t("settings")} aria-expanded={showSettings} className="btn-secondary h-10 w-10 px-0"><Icon name="settings" className="h-4 w-4" /></button>
@@ -241,7 +241,7 @@ export function WorkerHome({
             : <p className="text-muted">Tööandja pole hinda määranud.</p>
           )}
           <label className="flex items-center gap-2"><input type="checkbox" checked={showEarn} onChange={(e) => setShowEarn(e.target.checked)} /> {t("showEarnings")}</label>
-          <div className="flex gap-2">
+          <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-2">
             <button onClick={saveSettings} className="btn-primary flex-1">{t("save")}</button>
             <button onClick={toggleTheme} className="btn-secondary"><Icon name="moon" className="h-4 w-4" />{t("theme")}</button>
           </div>
@@ -259,14 +259,14 @@ export function WorkerHome({
         <>
           {/* timer */}
           <div className="flex flex-col items-center gap-4">
-            <div className="relative flex h-64 w-64 items-center justify-center">
+            <div className="relative flex size-[min(16rem,72vw)] max-h-[32dvh] max-w-[32dvh] items-center justify-center sm:size-64 sm:max-h-none sm:max-w-none">
               <svg className="absolute inset-0 -rotate-90" viewBox="0 0 100 100">
                 <circle cx="50" cy="50" r="45" fill="none" stroke="var(--border)" strokeWidth="6" />
                 <circle cx="50" cy="50" r="45" fill="none" stroke={active ? "var(--signal)" : "var(--text-muted)"} strokeWidth="6"
                   strokeLinecap="round" strokeDasharray={2 * Math.PI * 45} strokeDashoffset={2 * Math.PI * 45 * (1 - pct / 100)}
                   style={{ transition: "stroke-dashoffset 0.6s ease" }} />
               </svg>
-              <div className={`tabular text-4xl font-semibold ${active ? "text-signal" : "text-text"}`}>{hms(seconds)}</div>
+              <div className={`tabular text-3xl font-semibold min-[380px]:text-4xl ${active ? "text-signal" : "text-text"}`}>{hms(seconds)}</div>
             </div>
 
             {active && pricingType === "hourly" && showEarn && rateRes.rate != null && (
@@ -303,7 +303,7 @@ export function WorkerHome({
                 <input autoFocus inputMode="decimal" value={completedQuantity} onChange={(event) => setCompletedQuantity(event.target.value)} className="mt-1 w-full rounded-lg border border-border bg-bg px-3 py-2 text-lg tabular" />
               </label>
               <div className="text-right"><span className="text-sm text-muted">Kokku: </span><b className="tabular text-lg text-signal">{completionTotal == null ? "—" : money(completionTotal, profile.currency)}</b></div>
-              <div className="flex gap-2">
+              <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-2">
                 <button disabled={busy || !Number.isFinite(parsedCompleted) || parsedCompleted < 0 || completionTotal == null} onClick={() => void finish(parsedCompleted)} className="btn-primary flex-1">Salvesta ja lõpeta</button>
                 <button onClick={() => setCollectingQuantity(false)} className="btn-secondary">Tühista</button>
               </div>
@@ -341,15 +341,15 @@ export function WorkerHome({
               const current = wk.key === thisWeekKey;
               return (
                 <div key={wk.key} className="space-y-2">
-                  <div className="flex items-baseline justify-between border-b border-border pb-1">
-                    <div className="text-sm font-semibold">
+                  <div className="flex items-start justify-between gap-3 border-b border-border pb-1">
+                    <div className="min-w-0 text-sm font-semibold">
                       {current ? t("thisWeek") : wk.label}
-                      {current && <span className="ml-2 text-xs font-normal text-muted">{wk.label}</span>}
+                      {current && <span className="mt-0.5 block text-xs font-normal text-muted min-[380px]:ml-2 min-[380px]:mt-0 min-[380px]:inline">{wk.label}</span>}
                     </div>
-                    <div className="text-right">
-                      <span className="tabular font-semibold">{hours1(wk.seconds)} {t("hoursUnit")}</span>
+                    <div className="shrink-0 text-right">
+                      <span className="tabular block font-semibold min-[380px]:inline">{hours1(wk.seconds)} {t("hoursUnit")}</span>
                       {showEarn && wk.amount > 0 && (
-                        <span className="tabular ml-2 font-semibold text-signal">{money(wk.amount, profile.currency)}</span>
+                        <span className="tabular block text-sm font-semibold text-signal min-[380px]:ml-2 min-[380px]:inline">{money(wk.amount, profile.currency)}</span>
                       )}
                     </div>
                   </div>
@@ -357,11 +357,15 @@ export function WorkerHome({
                     const worked = s.worked_seconds ?? (s.ended_at ? Math.max(0, Math.floor((Date.parse(s.ended_at) - Date.parse(s.started_at)) / 1000) - s.break_seconds) : 0);
                     return (
                       <div key={s.id} className="rounded-xl border border-border bg-surface p-3">
-                        <div className="flex items-center justify-between">
-                          <div className="font-medium">{fmtDate(s.started_at)}</div>
-                          <div className="tabular font-semibold">{hours1(worked)} {t("hoursUnit")}</div>
-                          {showEarn && shiftTotal(s, rateRes.rate) > 0 && <div className="tabular text-sm font-semibold text-signal">{money(shiftTotal(s, rateRes.rate), profile.currency)}</div>}
-                          <div className="text-xs text-muted">{PRICING_LABELS[s.pricing_type ?? "hourly"]}{(s.pricing_type ?? "hourly") !== "hourly" && s.quantity != null ? ` · ${s.quantity} ${s.unit}` : ""}</div>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="font-medium">{fmtDate(s.started_at)}</div>
+                            <div className="mt-0.5 break-words text-xs text-muted">{PRICING_LABELS[s.pricing_type ?? "hourly"]}{(s.pricing_type ?? "hourly") !== "hourly" && s.quantity != null ? ` · ${s.quantity} ${s.unit}` : ""}</div>
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <div className="tabular font-semibold">{hours1(worked)} {t("hoursUnit")}</div>
+                            {showEarn && shiftTotal(s, rateRes.rate) > 0 && <div className="tabular text-sm font-semibold text-signal">{money(shiftTotal(s, rateRes.rate), profile.currency)}</div>}
+                          </div>
                         </div>
                         <div className="tabular mt-0.5 text-sm text-muted">
                           {fmtTime(s.started_at)} – {s.ended_at ? fmtTime(s.ended_at) : "…"}
