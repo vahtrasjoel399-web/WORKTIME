@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer, supabaseService } from "@/lib/supabase-server";
 import { emailSuggestion, isValidEmail, normalizeEmail } from "@/lib/email";
+import { buildManagedProfile } from "@/lib/managed-profile";
 import type { PricingType } from "@/lib/pricing";
 
 export const dynamic = "force-dynamic";
@@ -90,23 +91,22 @@ export async function POST(req: NextRequest) {
     return new NextResponse(duplicate ? "An account with this email already exists" : createErr?.message ?? "create failed", { status: duplicate ? 409 : 500 });
   }
 
-  const { error: profErr } = await service.from("profiles").insert({
+  const profile = buildManagedProfile({
     id: created.user.id,
-    company_id: me.company_id,
-    first_name: cleanFirst,
-    last_name: cleanLast,
+    companyId: me.company_id,
+    firstName: cleanFirst,
+    lastName: cleanLast,
     email: cleanEmail,
-    phone: cleanPhone || null,
-    position: cleanPosition || null,
-    default_site_id: accountRole === "worker" ? initialSiteId || null : null,
+    phone: cleanPhone,
+    position: cleanPosition,
+    initialSiteId,
     role: accountRole,
-    is_active: true,
-    is_approved: true,
-    locale: ["et", "ru", "en", "fi"].includes(locale) ? locale : "et",
-    hourly_rate: accountRole === "worker" ? rate : null,
-    pricing_type: accountRole === "worker" ? pricingType : "hourly",
-    pricing_unit: accountRole === "worker" && pricingType === "quantity" ? pricingUnit : null,
+    locale,
+    rate,
+    pricingType,
+    pricingUnit,
   });
+  const { error: profErr } = await service.from("profiles").insert(profile);
   if (profErr) {
     await service.auth.admin.deleteUser(created.user.id); // rollback
     return new NextResponse(profErr.message, { status: 500 });

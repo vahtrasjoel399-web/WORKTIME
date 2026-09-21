@@ -9,6 +9,7 @@
   "scripts": {
     "mobile": "npm run start --workspace apps/mobile",
     "admin": "npm run dev --workspace apps/admin",
+    "test": "npm run test --prefix apps/admin && npm run test --workspace apps/mobile && npm run typecheck --prefix apps/admin && npm run typecheck --workspace apps/mobile",
     "build": "npm run build --prefix apps/admin",
     "db:push": "supabase db push",
     "db:reset": "supabase db reset"
