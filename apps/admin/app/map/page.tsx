@@ -1,10 +1,15 @@
 import { supabaseServer } from "@/lib/supabase-server";
 import { LiveMap } from "@/components/LiveMap";
 import { PageHeader, StatusBadge } from "@/components/ui";
+import { getProfile } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function MapPage() {
+  const me = await getProfile();
+  if (!me) redirect("/login");
+  if (me.role !== "admin") redirect(me.role === "accountant" ? "/reports" : "/me");
   const supabase = await supabaseServer();
   const { data } = await supabase
     .from("v_shift_report")

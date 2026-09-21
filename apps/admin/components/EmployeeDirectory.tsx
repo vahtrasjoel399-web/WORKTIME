@@ -9,6 +9,7 @@ import { hours1, money } from "@/lib/format";
 import type { Profile, Site } from "@/lib/types";
 import { pricingUnit, PRICING_LABELS } from "@/lib/pricing";
 import { EmptyState, StatusBadge } from "./ui";
+import { useI18n } from "./I18nProvider";
 
 type OpenShift = {
   user_id: string;
@@ -35,6 +36,7 @@ interface Props {
   weekSeconds: Record<string, number>;
   weekEarned: Record<string, number>;
   photoUrls: Record<string, string>;
+  readOnly?: boolean;
 }
 
 function EmployeeAvatar({ worker, url, size = "md" }: { worker: Profile; url?: string; size?: "md" | "lg" }) {
@@ -60,7 +62,8 @@ function EmployeeAvatar({ worker, url, size = "md" }: { worker: Profile; url?: s
   );
 }
 
-export function EmployeeDirectory({ workers, sites, openShifts, assignments, weekSeconds, weekEarned, photoUrls }: Props) {
+export function EmployeeDirectory({ workers, sites, openShifts, assignments, weekSeconds, weekEarned, photoUrls, readOnly = false }: Props) {
+  const { t } = useI18n();
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<StatusFilter>("all");
 
@@ -98,26 +101,26 @@ export function EmployeeDirectory({ workers, sites, openShifts, assignments, wee
     <div className="space-y-4">
       <div className="panel flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:p-4">
         <label className="relative flex-1">
-          <span className="sr-only">Otsi töötajat</span>
+          <span className="sr-only">{t("searchEmployee")}</span>
           <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-muted"><Icon name="search" className="h-4 w-4" /></span>
           <input
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Otsi nime, ameti, telefoni, e-posti või objekti järgi"
+            placeholder={t("searchEmployeeHint")}
             className="control bg-bg pl-9"
           />
         </label>
         <label className="flex items-center gap-2 sm:w-52">
-          <span className="shrink-0 text-sm text-muted">Staatus</span>
+          <span className="shrink-0 text-sm text-muted">{t("status")}</span>
           <select
             value={status}
             onChange={(event) => setStatus(event.target.value as StatusFilter)}
             className="control bg-bg"
           >
-            <option value="all">Kõik</option>
-            <option value="active">Aktiivsed</option>
-            <option value="inactive">Mitteaktiivsed</option>
+            <option value="all">{t("all")}</option>
+            <option value="active">{t("activePlural")}</option>
+            <option value="inactive">{t("inactivePlural")}</option>
           </select>
         </label>
         <div className="text-right text-xs text-muted sm:w-24">
@@ -140,8 +143,10 @@ export function EmployeeDirectory({ workers, sites, openShifts, assignments, wee
           return (
             <Link
               key={worker.id}
-              href={`/workers/${worker.id}`}
-              className="rise panel block p-4 transition-colors hover:border-border-strong hover:bg-elevated"
+              href={readOnly ? "/" : `/workers/${worker.id}`}
+              aria-disabled={readOnly || undefined}
+              onClick={readOnly ? (event) => event.preventDefault() : undefined}
+              className={`rise panel block p-4 ${readOnly ? "cursor-default" : "transition-colors hover:border-border-strong hover:bg-elevated"}`}
               style={{ animationDelay: `${index * 35}ms` }}
             >
               <div className="flex items-start gap-3">
@@ -152,7 +157,7 @@ export function EmployeeDirectory({ workers, sites, openShifts, assignments, wee
                   </div>
                   <div className="truncate text-sm text-muted">{worker.position || "Amet määramata"}</div>
                 </div>
-                <Icon name="arrow" className="mt-1 h-5 w-5 shrink-0 text-muted" />
+                {!readOnly && <Icon name="arrow" className="mt-1 h-5 w-5 shrink-0 text-muted" />}
               </div>
 
               <div className="mt-3 flex flex-wrap gap-2 text-xs">
@@ -180,19 +185,19 @@ export function EmployeeDirectory({ workers, sites, openShifts, assignments, wee
           <table className="data-table">
             <thead>
               <tr>
-                <th className="px-4 py-3 font-medium">Töötaja</th>
-                <th className="px-4 py-3 font-medium">Kontakt</th>
-                <th className="px-4 py-3 font-medium">Praegune objekt</th>
-                <th className="px-4 py-3 font-medium">Staatus</th>
-                <th className="px-4 py-3 text-right font-medium">Nädal</th>
-                <th className="px-4 py-3 text-right font-medium">Hind</th>
-                <th className="px-4 py-3"></th>
+                <th className="px-4 py-3 font-medium">{t("employee")}</th>
+                <th className="px-4 py-3 font-medium">{t("contact")}</th>
+                <th className="px-4 py-3 font-medium">{t("currentSite")}</th>
+                <th className="px-4 py-3 font-medium">{t("status")}</th>
+                <th className="px-4 py-3 text-right font-medium">{t("week")}</th>
+                <th className="px-4 py-3 text-right font-medium">{t("rate")}</th>
+                {!readOnly && <th className="px-4 py-3"></th>}
               </tr>
             </thead>
             <tbody>
               {filtered.map((worker, index) => {
                 const open = openBy.get(worker.id);
-                const fix = open ? matchSite(open.start_lat, open.start_lng, sites) : null;
+                const fix = open && !readOnly ? matchSite(open.start_lat, open.start_lng, sites) : null;
                 const detectedSite = open?.site_id ? siteById.get(open.site_id) ?? null : fix?.site ?? null;
                 const assignment = assignmentByEmployee.get(worker.id);
                 const assignedSiteId = assignment?.site_id ?? worker.default_site_id;
@@ -204,7 +209,7 @@ export function EmployeeDirectory({ workers, sites, openShifts, assignments, wee
                 return (
                   <tr key={worker.id} className="rise" style={{ animationDelay: `${index * 25}ms` }}>
                     <td className="px-4 py-3">
-                      <Link href={`/workers/${worker.id}`} className="flex min-w-48 items-center gap-3 hover:text-signal">
+                      <Link href={readOnly ? "/" : `/workers/${worker.id}`} aria-disabled={readOnly || undefined} onClick={readOnly ? (event) => event.preventDefault() : undefined} className={`flex min-w-48 items-center gap-3 ${readOnly ? "cursor-default" : "hover:text-signal"}`}>
                         <EmployeeAvatar worker={worker} url={photoUrls[worker.id]} />
                         <span className="min-w-0">
                           <span className="block truncate font-medium">{worker.first_name} {worker.last_name}</span>
@@ -218,7 +223,7 @@ export function EmployeeDirectory({ workers, sites, openShifts, assignments, wee
                     </td>
                     <td className="px-4 py-3">
                       <div className="font-medium">{assignedSite?.name ?? "Määramata"}</div>
-                      {open && (
+                      {open && !readOnly && (
                         <div className={`max-w-64 text-xs ${outOfZone ? "text-alert" : "text-muted"}`}>
                           {detectedSite?.name && detectedSite.id !== assignedSite?.id ? `Vahetus: ${detectedSite.name}` : address}
                           {outOfZone && fix?.nearest && ` · ${distanceLabel(fix.distance)} objektist ${fix.nearest.name}`}
@@ -237,9 +242,9 @@ export function EmployeeDirectory({ workers, sites, openShifts, assignments, wee
                       <div>{worker.hourly_rate != null ? `${money(worker.hourly_rate, worker.currency)}/${pricingUnit(worker.pricing_type ?? "hourly", worker.pricing_unit)}` : "—"}</div>
                       <div className="text-[10px]">{PRICING_LABELS[worker.pricing_type ?? "hourly"]}</div>
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    {!readOnly && <td className="px-4 py-3 text-right">
                       <DeleteWorker id={worker.id} name={`${worker.first_name} ${worker.last_name}`} />
-                    </td>
+                    </td>}
                   </tr>
                 );
               })}

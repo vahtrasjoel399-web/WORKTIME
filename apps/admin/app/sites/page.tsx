@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export default async function SitesPage() {
   const me = await getProfile();
   if (!me) redirect("/login");
-  if (me.role !== "admin") redirect("/me");
+  if (me.role !== "admin") redirect(me.role === "accountant" ? "/reports" : "/me");
 
   const supabase = await supabaseServer();
   const [{ data: sites }, { data: assignments }] = await Promise.all([

@@ -22,7 +22,10 @@ export default function SetPasswordPage() {
     if (password !== confirm) return setError(t("passwordMismatch"));
     setBusy(true);
     const supabase = supabaseBrowser();
-    const { error: updateError } = await supabase.auth.updateUser({ password });
+    const { error: updateError } = await supabase.auth.updateUser({
+      password,
+      data: { force_password_change: false },
+    });
     setBusy(false);
     if (updateError) return setError(t("passwordUpdateFailed"));
 
@@ -30,8 +33,8 @@ export default function SetPasswordPage() {
     const { data: profile } = user
       ? await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle()
       : { data: null };
-    if (profile?.role === "admin") {
-      router.replace("/");
+    if (profile?.role === "admin" || profile?.role === "accountant") {
+      router.replace(profile.role === "accountant" ? "/reports" : "/");
       router.refresh();
       return;
     }

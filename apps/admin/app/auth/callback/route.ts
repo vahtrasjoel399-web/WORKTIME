@@ -14,24 +14,20 @@ export async function GET(req: NextRequest) {
   const { data: existing } = await supabase.from("profiles").select("role").eq("id", data.user.id).maybeSingle();
   if (!existing) {
     const meta = data.user.user_metadata ?? {};
-    if (meta.registration_kind === "worker") {
-      const { error: registrationError } = await supabase.rpc("register_worker", {
-        p_join_code: String(meta.join_code ?? ""),
-        worker_first: String(meta.first_name ?? ""),
-        worker_last: String(meta.last_name ?? ""),
-      });
-      if (registrationError) return NextResponse.redirect(new URL("/login?auth_error=registration", req.url));
-    } else if (meta.registration_kind === "company") {
+    if (meta.registration_kind === "company") {
       const { error: registrationError } = await supabase.rpc("register_company", {
         company_name: String(meta.company_name ?? ""),
         admin_first: String(meta.first_name ?? ""),
         admin_last: String(meta.last_name ?? ""),
       });
       if (registrationError) return NextResponse.redirect(new URL("/login?auth_error=registration", req.url));
+    } else {
+      await supabase.auth.signOut();
+      return NextResponse.redirect(new URL("/login?auth_error=registration_disabled", req.url));
     }
   }
 
   if (next) return NextResponse.redirect(new URL(next, req.url));
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", data.user.id).maybeSingle();
-  return NextResponse.redirect(new URL(profile?.role === "admin" ? "/" : "/me", req.url));
+  return NextResponse.redirect(new URL(profile?.role === "admin" ? "/" : profile?.role === "accountant" ? "/reports" : "/me", req.url));
 }

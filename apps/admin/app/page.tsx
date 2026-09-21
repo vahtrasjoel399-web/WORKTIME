@@ -1,24 +1,26 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { supabaseServer } from "@/lib/supabase-server";
+import { supabaseServer, supabaseService } from "@/lib/supabase-server";
 import { getProfile } from "@/lib/auth";
 import { hours1, money } from "@/lib/format";
 import { shiftTotal } from "@/lib/pricing";
 import { isoWeek, parseYmd, weekRange } from "@/lib/week";
 import { AddWorker } from "@/components/AddWorker";
-import { PendingWorkers } from "@/components/PendingWorkers";
 import { EmployeeDirectory } from "@/components/EmployeeDirectory";
 import { EmptyState, MetricStrip, PageHeader } from "@/components/ui";
 import type { Profile, Site } from "@/lib/types";
+import { T } from "@/components/T";
 
 export const dynamic = "force-dynamic";
 
 export default async function WorkersPage() {
   const me = await getProfile();
   if (!me) redirect("/login");
-  if (me.role !== "admin") redirect("/me"); // workers get their own screen
+  if (me.role === "worker") redirect("/me");
 
   const supabase = await supabaseServer();
+  const db = me.role === "accountant" ? supabaseService() : supabase;
+  const readOnly = me.role === "accountant";
   // Pay runs weekly (D-015): the list shows the running Mon-Sun week, not the month.
   const week = weekRange(new Date());
   const from = parseYmd(week.from).toISOString();
@@ -35,27 +37,33 @@ export default async function WorkersPage() {
     { data: company },
   ] =
     await Promise.all([
-      supabase.from("profiles").select("*").eq("role", "worker").order("last_name"),
-      supabase
+      db.from("profiles").select("*").eq("company_id", me.company_id).eq("role", "worker").order("last_name"),
+      db
         .from("shifts")
         .select("user_id, site_id, started_at, start_lat, start_lng, start_address")
+        .eq("company_id", me.company_id)
         .eq("status", "open"),
-      supabase
+      db
         .from("shifts")
         .select("user_id, worked_seconds, pricing_type, pricing_rate, quantity, calculated_total")
+        .eq("company_id", me.company_id)
         .eq("status", "closed")
         .gte("started_at", from)
         .lt("started_at", to),
-      supabase.from("sites").select("*"),
-      supabase
+      db.from("sites").select("*").eq("company_id", me.company_id),
+      db
         .from("employee_assignments")
         .select("employee_id, site_id, start_date")
+        .eq("company_id", me.company_id)
         .is("end_date", null),
-      supabase.from("companies").select("name, join_code").limit(1).maybeSingle(),
+      db.from("companies").select("name").eq("id", me.company_id).maybeSingle(),
     ]);
 
   const siteList = (sites ?? []) as Site[];
   const openBy = new Map((openShifts ?? []).map((o) => [o.user_id, o]));
+  const directoryOpenShifts = readOnly
+    ? (openShifts ?? []).map((shift) => ({ ...shift, start_lat: null, start_lng: null, start_address: null }))
+    : (openShifts ?? []);
   const weekSeconds = new Map<string, number>();
   const weekEarned = new Map<string, number>();
   for (const s of weekShifts ?? []) {
@@ -63,7 +71,6 @@ export default async function WorkersPage() {
   }
 
   const all = (workers ?? []) as Profile[];
-  const pending = all.filter((w) => w.is_approved === false);
   const list = all.filter((w) => w.is_approved !== false);
   const onShift = list.filter((w) => openBy.has(w.id)).length;
 
@@ -80,7 +87,7 @@ export default async function WorkersPage() {
   const currency = list[0]?.currency ?? "EUR";
   const photoPaths = list.flatMap((worker) => worker.profile_photo_path ? [worker.profile_photo_path] : []);
   const photoUrls: Record<string, string> = {};
-  if (photoPaths.length > 0) {
+  if (!readOnly && photoPaths.length > 0) {
     const { data: signedPhotos } = await supabase.storage
       .from("employee-files")
       .createSignedUrls(photoPaths, 3600);
@@ -101,8 +108,8 @@ export default async function WorkersPage() {
   return (
     <div className="page-stack">
       <PageHeader
-        eyebrow={company?.name ?? "Tööjõu ülevaade"}
-        title="Töötajad"
+        eyebrow={company?.name ?? <T id="workforceOverview" />}
+        title={<T id="employees" />}
         description={<>Nädal {isoWeek(parseYmd(week.from))} · {week.from.slice(8)}.{week.from.slice(5, 7)}–{week.to.slice(8)}.{week.to.slice(5, 7)}</>}
         actions={
           <>
@@ -110,42 +117,34 @@ export default async function WorkersPage() {
             href="/reports"
             className="btn-secondary"
           >
-            Nädala aruanne
+            <T id="weeklyReport" />
           </Link>
-          <AddWorker sites={siteList} companyId={me.company_id} actorId={me.id} />
+          {!readOnly && <AddWorker sites={siteList} companyId={me.company_id} actorId={me.id} />}
           </>
         }
       />
 
       <MetricStrip items={[
-        { label: "Töötajaid", value: list.length, detail: `${list.filter((worker) => worker.is_active).length} aktiivset` },
-        { label: "Praegu tööl", value: onShift, detail: onShift === 1 ? "1 avatud vahetus" : `${onShift} avatud vahetust`, tone: "live" },
-        { label: "Nädala tööaeg", value: `${hours1(weekHours)} h`, detail: `Nädal ${isoWeek(parseYmd(week.from))}` },
-        { label: "Nädala palgafond", value: money(payroll, currency), detail: "Bruto, hinnanguline", tone: "signal" },
+        { label: <T id="employeeCount" />, value: list.length, detail: `${list.filter((worker) => worker.is_active).length} aktiivset` },
+        { label: <T id="workingNow" />, value: onShift, detail: onShift === 1 ? "1 avatud vahetus" : `${onShift} avatud vahetust`, tone: "live" },
+        { label: <T id="weeklyHours" />, value: `${hours1(weekHours)} h`, detail: <><T id="week" /> {isoWeek(parseYmd(week.from))}</> },
+        { label: <T id="weeklyPayroll" />, value: money(payroll, currency), detail: <T id="estimatedGross" />, tone: "signal" },
       ]} />
 
-      {company?.join_code && (
-        <div className="flex flex-col gap-2 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
-          <span><span className="font-medium">Liitumiskood</span><span className="text-muted"> · jaga seda töötajaga konto loomiseks</span></span>
-          <span className="tabular select-all font-semibold tracking-[0.18em] text-primary">{company.join_code}</span>
-        </div>
-      )}
-
-      <PendingWorkers pending={pending} />
-
       {list.length === 0 && (
-        <EmptyState title="Töötajaid pole veel" description="Lisa esimene töötaja või jaga ettevõtte liitumiskoodi, et tiim saaks liituda." />
+        <EmptyState title="Töötajaid pole veel" description={readOnly ? "Ettevõttes pole veel töötajaid." : "Lisa esimene töötaja. Konto ja ajutise parooli loob administraator."} />
       )}
 
       {list.length > 0 && (
         <EmployeeDirectory
           workers={list}
           sites={siteList}
-          openShifts={openShifts ?? []}
+          openShifts={directoryOpenShifts}
           assignments={assignments ?? []}
           weekSeconds={weekSecondsRecord}
           weekEarned={weekEarnedRecord}
           photoUrls={photoUrls}
+          readOnly={readOnly}
         />
       )}
     </div>

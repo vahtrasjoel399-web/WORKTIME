@@ -40,15 +40,15 @@ export function useI18n(): Ctx {
 }
 
 // Compact ET / RU / EN switcher for the auth + worker screens.
-export function LangSwitcher() {
+export function LangSwitcher({ compact = false }: { compact?: boolean }) {
   const { lang, setLang } = useI18n();
   return (
-    <div className="flex justify-center gap-2">
+    <div className={`flex justify-center ${compact ? "gap-1" : "gap-2"}`} aria-label="Language">
       {LANGS.map((l) => (
         <button
           key={l}
           onClick={() => setLang(l)}
-          className={`rounded-full border px-3 py-1 text-xs font-medium ${
+          className={`rounded-full border text-xs font-medium ${compact ? "px-2 py-1" : "px-3 py-1"} ${
             l === lang ? "border-signal bg-signal/20 text-signal" : "border-border text-muted"
           }`}
         >

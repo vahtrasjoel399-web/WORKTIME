@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { supabaseServer } from "@/lib/supabase-server";
+import { redirect } from "next/navigation";
+import { supabaseServer, supabaseService } from "@/lib/supabase-server";
+import { getProfile } from "@/lib/auth";
 import { buildMatrix, buildWeekly, type WorkerRow } from "@/lib/report";
 import { hours1, money } from "@/lib/format";
 import { addWeeks, isFullWeek, isoWeek, parseYmd, startOfWeek, weekRange, ymd } from "@/lib/week";
@@ -7,6 +9,7 @@ import type { ShiftReport } from "@/lib/types";
 import { ExportButtons } from "@/components/ExportButtons";
 import { pricingUnit, PRICING_LABELS } from "@/lib/pricing";
 import { EmptyState, MetricStrip, PageHeader, StatusBadge } from "@/components/ui";
+import { T } from "@/components/T";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +21,9 @@ export default async function ReportsPage({
   searchParams: Promise<{ from?: string; to?: string }>;
 }) {
   const query = await searchParams;
+  const me = await getProfile();
+  if (!me) redirect("/login");
+  if (me.role === "worker") redirect("/me");
   // Pay runs weekly (D-015), so the period defaults to the running week and the
   // page rolls over to the next one by itself every Monday.
   const thisWeek = weekRange(new Date());
@@ -28,11 +34,13 @@ export default async function ReportsPage({
   to.setUTCDate(to.getUTCDate() + 1); // inclusive end day
 
   const supabase = await supabaseServer();
+  const db = me.role === "accountant" ? supabaseService() : supabase;
   const [{ data: workers }, { data: shiftsRaw }] = await Promise.all([
-    supabase.from("profiles").select("*").eq("role", "worker").order("last_name"),
-    supabase
+    db.from("profiles").select("id, first_name, last_name, hourly_rate, self_hourly_rate, pricing_type, pricing_unit, currency").eq("company_id", me.company_id).eq("role", "worker").order("last_name"),
+    db
       .from("v_shift_report")
-      .select("*")
+      .select("id, user_id, worked_seconds, pricing_type, pricing_rate, quantity, calculated_total, work_date, out_of_zone")
+      .eq("company_id", me.company_id)
       .eq("status", "closed")
       .gte("started_at", from.toISOString())
       .lt("started_at", to.toISOString()),
@@ -59,12 +67,12 @@ export default async function ReportsPage({
 
   return (
     <div className="page-stack">
-      <PageHeader eyebrow="Palgaarvestus" title="Tööaruanne" description={period} actions={<ExportButtons from={fromStr} to={toStr} />} />
+      <PageHeader eyebrow={<T id="reportsPayroll" />} title={<T id="workReport" />} description={period} actions={<ExportButtons from={fromStr} to={toStr} />} />
 
       {/* week navigation — one click per pay period */}
       <div className="flex flex-wrap items-center gap-2">
         <Link href={href(prev)} className="btn-secondary">
-          ← Eelmine nädal
+          <T id="previousWeek" />
         </Link>
         <Link
           href={href(thisWeek)}
@@ -72,43 +80,43 @@ export default async function ReportsPage({
             isCurrent ? "bg-primary text-primary-foreground" : "border border-border-strong bg-surface hover:bg-bg"
           }`}
         >
-          See nädal
+          <T id="currentWeek" />
         </Link>
         <Link href={href(next)} className="btn-secondary">
-          Järgmine nädal →
+          <T id="nextWeek" />
         </Link>
         <Link
           href={href({ from: ymd(startOfWeek(addWeeks(new Date(), -3))), to: thisWeek.to })}
           className="btn-quiet"
         >
-          Viimased 4 nädalat
+          <T id="lastFourWeeks" />
         </Link>
       </div>
 
       {/* summary */}
       <MetricStrip items={[
-        { label: "Tunnid perioodis", value: `${hours1(grandTotal)} h`, detail: period },
-        { label: "Palgafond", value: money(grandEarned, currency), detail: "Bruto, hinnanguline", tone: "signal" },
-        { label: "Töötajaid tööajaga", value: matrix.workers.filter((w) => matrix.totalsByWorker[w.id] > 0).length, detail: `${matrix.workers.length} töötajat kokku` },
+        { label: <T id="hoursInPeriod" />, value: `${hours1(grandTotal)} h`, detail: period },
+        { label: <T id="payroll" />, value: money(grandEarned, currency), detail: <T id="estimatedGross" />, tone: "signal" },
+        { label: <T id="employeesWithTime" />, value: matrix.workers.filter((w) => matrix.totalsByWorker[w.id] > 0).length, detail: `${matrix.workers.length} töötajat kokku` },
       ]} />
 
       <form className="panel flex flex-wrap items-end gap-3 p-4">
         <label className="text-sm">
-          <span className="field-label">Alates</span>
+          <span className="field-label"><T id="from" /></span>
           <input type="date" name="from" defaultValue={fromStr} className="control bg-bg" />
         </label>
         <label className="text-sm">
-          <span className="field-label">Kuni</span>
+          <span className="field-label"><T id="to" /></span>
           <input type="date" name="to" defaultValue={toStr} className="control bg-bg" />
         </label>
-        <button className="btn-primary">Näita perioodi</button>
+        <button className="btn-primary"><T id="showPeriod" /></button>
       </form>
 
       {matrix.workers.length === 0 ? <EmptyState title="Aruandes pole töötajaid" description="Valitud perioodi kohta ei ole kuvamiseks töötajaid ega tööaega." /> : <div className="panel overflow-x-auto">
         <table className="data-table">
           <thead>
             <tr>
-              <th className="sticky left-0 bg-surface px-3 py-2 text-left font-medium">Töötaja</th>
+              <th className="sticky left-0 bg-surface px-3 py-2 text-left font-medium"><T id="employee" /></th>
               {matrix.days.map((d) => {
                 const dow = DOW[(parseYmd(d).getUTCDay() + 6) % 7];
                 const weekend = dow === "L" || dow === "P";
@@ -119,18 +127,16 @@ export default async function ReportsPage({
                   </th>
                 );
               })}
-              <th className="px-3 py-2 text-right font-medium">Kokku</th>
-              <th className="hidden px-3 py-2 text-right font-medium sm:table-cell">Hind</th>
-              <th className="px-3 py-2 text-right font-medium">Teenitud</th>
+              <th className="px-3 py-2 text-right font-medium"><T id="total" /></th>
+              <th className="hidden px-3 py-2 text-right font-medium sm:table-cell"><T id="rate" /></th>
+              <th className="px-3 py-2 text-right font-medium"><T id="earned" /></th>
             </tr>
           </thead>
           <tbody>
             {matrix.workers.map((w) => (
               <tr key={w.id} className="border-b border-border last:border-0">
                 <td className="sticky left-0 bg-surface px-3 py-2 font-medium">
-                  <Link href={`/workers/${w.id}`} className="hover:text-signal">
-                    {w.name}
-                  </Link>
+                  {me.role === "admin" ? <Link href={`/workers/${w.id}`} className="hover:text-signal">{w.name}</Link> : w.name}
                   {matrix.flagsByWorker[w.id] > 0 && (
                     <span className="ml-2"><StatusBadge tone="alert">Väljaspool tsooni · {matrix.flagsByWorker[w.id]}</StatusBadge></span>
                   )}

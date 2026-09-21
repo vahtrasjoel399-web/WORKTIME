@@ -16,9 +16,8 @@ function tallinnDate(): string {
   return `${values.year}-${values.month}-${values.day}`;
 }
 
-// Creates a worker account (no self sign-up exists). The admin's company is read
-// from their own session; the new auth user + profile are created with the service
-// role, then the worker chooses their own password through the emailed invite.
+// Creates a managed worker or accountant account. Only an authenticated admin can
+// choose the role and initial password; the user must replace it on first login.
 export async function POST(req: NextRequest) {
   const supabase = await supabaseServer();
   const {
@@ -29,7 +28,12 @@ export async function POST(req: NextRequest) {
   if (!me || me.role !== "admin") return new NextResponse("Forbidden", { status: 403 });
 
   const body = await req.json().catch(() => null);
-  const { first_name, last_name, email, phone, position, initial_site_id, hourly_rate, pricing_type, pricing_unit, locale } = body ?? {};
+  const { first_name, last_name, email, password, role, phone, position, initial_site_id, hourly_rate, pricing_type, pricing_unit, locale } = body ?? {};
+  const accountRole = role === "accountant" ? "accountant" : role === "worker" ? "worker" : null;
+  if (!accountRole) return new NextResponse("Invalid account role", { status: 400 });
+  if (typeof password !== "string" || password.length < 10 || password.length > 128) {
+    return new NextResponse("Temporary password must contain 10–128 characters", { status: 400 });
+  }
   const cleanEmail = typeof email === "string" ? normalizeEmail(email) : "";
   const cleanFirst = typeof first_name === "string" ? first_name.trim() : "";
   const cleanLast = typeof last_name === "string" ? last_name.trim() : "";
@@ -54,11 +58,11 @@ export async function POST(req: NextRequest) {
   }
   const pricingType: PricingType = ["hourly", "area", "quantity"].includes(pricing_type) ? pricing_type : "hourly";
   const pricingUnit = typeof pricing_unit === "string" ? pricing_unit.trim() : "";
-  if (pricingType === "quantity" && (!pricingUnit || pricingUnit.length > 24)) {
+  if (accountRole === "worker" && pricingType === "quantity" && (!pricingUnit || pricingUnit.length > 24)) {
     return new NextResponse("Quantity pricing requires a valid unit", { status: 400 });
   }
 
-  if (initialSiteId) {
+  if (accountRole === "worker" && initialSiteId) {
     const { data: site } = await supabase
       .from("sites")
       .select("id")
@@ -70,13 +74,21 @@ export async function POST(req: NextRequest) {
   }
 
   const service = supabaseService();
-  const siteOrigin = (process.env.NEXT_PUBLIC_SITE_URL ?? req.nextUrl.origin).replace(/\/$/, "");
-  const redirectTo = `${siteOrigin}/auth/confirm`;
-  const { data: created, error: createErr } = await service.auth.admin.inviteUserByEmail(cleanEmail, {
-    redirectTo,
-    data: { first_name: cleanFirst, last_name: cleanLast, invited_by: user.id },
+  const { data: created, error: createErr } = await service.auth.admin.createUser({
+    email: cleanEmail,
+    password,
+    email_confirm: true,
+    user_metadata: {
+      first_name: cleanFirst,
+      last_name: cleanLast,
+      created_by: user.id,
+      force_password_change: true,
+    },
   });
-  if (createErr || !created.user) return new NextResponse(createErr?.message ?? "create failed", { status: 500 });
+  if (createErr || !created.user) {
+    const duplicate = /already|registered|exists/i.test(createErr?.message ?? "");
+    return new NextResponse(duplicate ? "An account with this email already exists" : createErr?.message ?? "create failed", { status: duplicate ? 409 : 500 });
+  }
 
   const { error: profErr } = await service.from("profiles").insert({
     id: created.user.id,
@@ -86,14 +98,14 @@ export async function POST(req: NextRequest) {
     email: cleanEmail,
     phone: cleanPhone || null,
     position: cleanPosition || null,
-    default_site_id: initialSiteId || null,
-    role: "worker",
+    default_site_id: accountRole === "worker" ? initialSiteId || null : null,
+    role: accountRole,
     is_active: true,
     is_approved: true,
     locale: ["et", "ru", "en", "fi"].includes(locale) ? locale : "et",
-    hourly_rate: rate,
-    pricing_type: pricingType,
-    pricing_unit: pricingType === "quantity" ? pricingUnit : null,
+    hourly_rate: accountRole === "worker" ? rate : null,
+    pricing_type: accountRole === "worker" ? pricingType : "hourly",
+    pricing_unit: accountRole === "worker" && pricingType === "quantity" ? pricingUnit : null,
   });
   if (profErr) {
     await service.auth.admin.deleteUser(created.user.id); // rollback
@@ -101,7 +113,7 @@ export async function POST(req: NextRequest) {
   }
 
   let initialAssignmentId: string | null = null;
-  if (initialSiteId) {
+  if (accountRole === "worker" && initialSiteId) {
     const { data: assignment, error: assignmentError } = await service
       .from("employee_assignments")
       .insert({
@@ -124,12 +136,12 @@ export async function POST(req: NextRequest) {
     {
       company_id: me.company_id,
       actor_id: user.id,
-      action: "employee.created",
-      target_type: "employee",
+      action: accountRole === "worker" ? "employee.created" : "accountant.created",
+      target_type: accountRole,
       target_id: created.user.id,
       metadata: {},
     },
-    ...(initialSiteId
+    ...(accountRole === "worker" && initialSiteId
       ? [{
           company_id: me.company_id,
           actor_id: user.id,
@@ -146,7 +158,7 @@ export async function POST(req: NextRequest) {
     return new NextResponse("Could not record employee creation", { status: 500 });
   }
 
-  return NextResponse.json({ id: created.user.id, invited: true });
+  return NextResponse.json({ id: created.user.id, role: accountRole, created: true });
 }
 
 export async function DELETE(req: NextRequest) {

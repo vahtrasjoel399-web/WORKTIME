@@ -15,7 +15,7 @@ type CurrentAssignment = {
 export default async function SitePage({ params }: { params: Promise<{ id: string }> }) {
   const me = await getProfile();
   if (!me) redirect("/login");
-  if (me.role !== "admin") redirect("/me");
+  if (me.role !== "admin") redirect(me.role === "accountant" ? "/reports" : "/me");
 
   const { id } = await params;
   const supabase = await supabaseServer();

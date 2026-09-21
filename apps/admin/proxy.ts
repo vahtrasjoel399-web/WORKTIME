@@ -32,8 +32,12 @@ export async function proxy(req: NextRequest) {
   const isPrivacy = req.nextUrl.pathname.startsWith("/privacy");
   const isAuthCallback = req.nextUrl.pathname.startsWith("/auth/callback");
   const isAuthConfirm = req.nextUrl.pathname.startsWith("/auth/confirm");
+  const isSetPassword = req.nextUrl.pathname.startsWith("/set-password");
   if (!user && !isLogin && !isPrivacy && !isAuthCallback && !isAuthConfirm) {
     return NextResponse.redirect(new URL("/login", req.url));
+  }
+  if (user?.user_metadata?.force_password_change === true && !isSetPassword) {
+    return NextResponse.redirect(new URL("/set-password?initial=1", req.url));
   }
   if (user && isLogin) {
     return NextResponse.redirect(new URL("/", req.url));

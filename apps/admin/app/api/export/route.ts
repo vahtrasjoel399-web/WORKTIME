@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const profile = await getProfile();
   if (!profile) return new NextResponse("Unauthorized", { status: 401 });
-  if (profile.role !== "admin") return new NextResponse("Forbidden", { status: 403 });
+  if (profile.role === "worker") return new NextResponse("Forbidden", { status: 403 });
 
   const format = req.nextUrl.searchParams.get("format") ?? "csv";
   if (format !== "csv" && format !== "xlsx") {
@@ -38,11 +38,13 @@ export async function GET(req: NextRequest) {
   to.setUTCDate(to.getUTCDate() + 1);
 
   const supabase = await supabaseServer();
+  const db = profile.role === "accountant" ? supabaseService() : supabase;
   const [workersResult, shiftsResult] = await Promise.all([
-    supabase.from("profiles").select("*").eq("role", "worker").order("last_name"),
-    supabase
+    db.from("profiles").select("id, first_name, last_name, hourly_rate, self_hourly_rate, pricing_type, pricing_unit, currency").eq("company_id", profile.company_id).eq("role", "worker").order("last_name"),
+    db
       .from("v_shift_report")
-      .select("*")
+      .select("id, user_id, worked_seconds, pricing_type, pricing_rate, quantity, calculated_total, work_date, out_of_zone")
+      .eq("company_id", profile.company_id)
       .eq("status", "closed")
       .gte("started_at", from.toISOString())
       .lt("started_at", to.toISOString()),

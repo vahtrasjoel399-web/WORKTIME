@@ -10,7 +10,8 @@ export const dynamic = "force-dynamic";
 export default async function MePage() {
   const profile = await getProfile();
   if (!profile) redirect("/login");
-  if (profile.role === "admin") redirect("/"); // admins use the dashboard
+  if (profile.role === "admin") redirect("/");
+  if (profile.role === "accountant") redirect("/reports");
 
   const supabase = await supabaseServer();
   // Pay runs weekly (D-015): load the last 8 pay weeks so the worker can check the

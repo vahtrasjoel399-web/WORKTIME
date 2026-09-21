@@ -10,9 +10,9 @@ export function PageHeader({
   eyebrow,
   actions,
 }: {
-  title: string;
+  title: ReactNode;
   description?: ReactNode;
-  eyebrow?: string;
+  eyebrow?: ReactNode;
   actions?: ReactNode;
 }) {
   return (
@@ -30,12 +30,12 @@ export function PageHeader({
 export function MetricStrip({
   items,
 }: {
-  items: Array<{ label: string; value: ReactNode; detail?: ReactNode; tone?: "default" | "primary" | "live" | "signal" }>;
+  items: Array<{ label: ReactNode; value: ReactNode; detail?: ReactNode; tone?: "default" | "primary" | "live" | "signal" }>;
 }) {
   return (
     <dl className="panel grid divide-y divide-border sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
-      {items.map((item) => (
-        <div key={item.label} className="min-w-0 px-4 py-3.5 sm:px-5">
+      {items.map((item, index) => (
+        <div key={index} className="min-w-0 px-4 py-3.5 sm:px-5">
           <dt className="text-xs font-medium text-muted">{item.label}</dt>
           <dd className={cx("tabular mt-1 text-xl font-semibold tracking-tight", item.tone === "primary" && "text-primary", item.tone === "live" && "text-live", item.tone === "signal" && "text-signal")}>{item.value}</dd>
           {item.detail && <div className="mt-0.5 truncate text-xs text-muted">{item.detail}</div>}

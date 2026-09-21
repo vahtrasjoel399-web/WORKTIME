@@ -28,7 +28,7 @@ export default async function WorkerCard({
   const [{ id }, query] = await Promise.all([params, searchParams]);
   const me = await getProfile();
   if (!me) redirect("/login");
-  if (me.role !== "admin") redirect("/me");
+  if (me.role !== "admin") redirect(me.role === "accountant" ? "/reports" : "/me");
 
   const supabase = await supabaseServer();
   const now = new Date();
