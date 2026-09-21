@@ -18,9 +18,13 @@ export default function Index() {
   }
 
   if (!userId) return <Redirect href="/(auth)/login" />;
+  // Auth users without an active worker profile (including admins/accountants
+  // and orphan sign-ups) never enter the worker application.
+  if (!profile || profile.role !== "worker" || profile.is_active === false)
+    return <Redirect href="/(auth)/login" />;
   // a self-registered worker waits for the employer to accept them
   // (only block when explicitly false, so nothing breaks before the column exists)
-  if (profile && profile.role === "worker" && profile.is_approved === false)
+  if (profile.is_approved === false)
     return <Redirect href="/(auth)/pending" />;
   if (hasConsent === false) return <Redirect href="/(auth)/consent" />;
   return <Redirect href="/(app)" />;

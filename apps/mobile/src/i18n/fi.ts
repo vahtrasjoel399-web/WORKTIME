@@ -14,6 +14,7 @@ export const fi: Messages = {
     withPhone: "Puhelin (SMS)",
     signIn: "Kirjaudu",
     invalid: "Väärä sähköposti tai salasana.",
+    workerOnly: "Tällä tilillä ei voi käyttää työntekijäsovellusta. Ota yhteyttä työnantajaan.",
     codeSent: "Lähetimme koodin puhelimeesi.",
     genericError: "Kirjautuminen epäonnistui. Tarkista yhteys ja yritä uudelleen.",
     noAccount: "Uusi käyttäjä? Luo tili",

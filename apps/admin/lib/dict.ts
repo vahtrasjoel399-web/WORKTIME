@@ -80,6 +80,7 @@ export const dict: Dict = {
 
   // hints & errors
   autoRole: { et: "Süsteem tuvastab ise: töötaja või tööandja.", ru: "Система сама определит: работник или начальник.", en: "The system detects your role automatically." },
+  accountByAdmin: { et: "Konto loob ettevõtte administraator.", ru: "Учётную запись создаёт администратор компании.", en: "Your account is created by the company administrator." },
   codeFromEmployer: { et: "Ettevõtte koodi annab tööandja.", ru: "Код компании даёт работодатель.", en: "Your employer gives you the company code." },
   errWrongCreds: { et: "Vale e-post või parool.", ru: "Неверная почта или пароль.", en: "Wrong email or password." },
   errExists: { et: "Selle e-postiga konto on juba olemas.", ru: "Аккаунт с этой почтой уже есть.", en: "An account with this email already exists." },

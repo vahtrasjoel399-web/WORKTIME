@@ -14,6 +14,7 @@ export const et: Messages = {
     withPhone: "Telefon (SMS)",
     signIn: "Logi sisse",
     invalid: "Vale e-post või parool.",
+    workerOnly: "Selle kontoga ei saa töötaja rakendust kasutada. Võta ühendust tööandjaga.",
     codeSent: "Saatsime koodi sinu telefonile.",
     genericError: "Sisselogimine ebaõnnestus. Kontrolli ühendust ja proovi uuesti.",
     noAccount: "Uus kasutaja? Loo konto",

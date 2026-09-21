@@ -12,6 +12,7 @@ export const en = {
     withPhone: "Phone (SMS)",
     signIn: "Sign in",
     invalid: "Wrong email or password.",
+    workerOnly: "This account cannot use the worker app. Contact your employer.",
     codeSent: "We sent a code to your phone.",
     genericError: "Could not sign in. Check your connection and try again.",
     noAccount: "New here? Create an account",

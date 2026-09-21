@@ -40,7 +40,7 @@ export interface Profile {
   position: string | null;
   profile_photo_path: string | null;
   default_site_id: string | null;
-  role: "worker" | "admin";
+  role: "worker" | "admin" | "accountant";
   is_active: boolean;
   is_approved: boolean;
   locale: Locale;

@@ -1,25 +1,19 @@
 import React, { useState } from "react";
 import { View, TextInput, StyleSheet, Pressable, KeyboardAvoidingView, Platform, ScrollView } from "react-native";
-import { router, Link } from "expo-router";
+import { router } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useTheme } from "@/theme/ThemeProvider";
-import { Screen, Title, Muted, Body, SegRow } from "@/components/ui";
+import { Screen, Title, Muted, Body } from "@/components/ui";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useLocale } from "@/i18n/LocaleProvider";
 import { font, radius, space } from "@/theme/tokens";
 import { t } from "@/i18n";
 
-type Method = "email" | "phone";
-
 export default function Login() {
   const { theme } = useTheme();
   useLocale(); // subscribe so switching language re-renders this screen
-  const [method, setMethod] = useState<Method>("email");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [phone, setPhone] = useState("");
-  const [code, setCode] = useState("");
-  const [codeSent, setCodeSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,27 +25,22 @@ export default function Login() {
   async function signInEmail() {
     setBusy(true);
     setError(null);
-    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    if (error || !data.user) {
+      setBusy(false);
+      return setError(t("auth.invalid"));
+    }
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role, is_active, is_approved")
+      .eq("id", data.user.id)
+      .maybeSingle();
+    if (!profile || profile.role !== "worker" || profile.is_active === false) {
+      await supabase.auth.signOut();
+      setBusy(false);
+      return setError(t("auth.workerOnly"));
+    }
     setBusy(false);
-    if (error) return setError(t("auth.invalid"));
-    router.replace("/");
-  }
-
-  async function sendCode() {
-    setBusy(true);
-    setError(null);
-    const { error } = await supabase.auth.signInWithOtp({ phone: phone.trim() });
-    setBusy(false);
-    if (error) return setError(t("auth.genericError"));
-    setCodeSent(true);
-  }
-
-  async function verifyCode() {
-    setBusy(true);
-    setError(null);
-    const { error } = await supabase.auth.verifyOtp({ phone: phone.trim(), token: code.trim(), type: "sms" });
-    setBusy(false);
-    if (error) return setError(t("auth.genericError"));
     router.replace("/");
   }
 
@@ -66,52 +55,14 @@ export default function Login() {
             <Muted>{t("auth.subtitle")}</Muted>
           </View>
 
-          <SegRow<Method>
-            value={method}
-            onChange={(m) => {
-              setMethod(m);
-              setError(null);
-            }}
-            options={[
-              { value: "email", label: t("auth.withEmail") },
-              { value: "phone", label: t("auth.withPhone") },
-            ]}
-          />
-
-          {method === "email" ? (
-            <View style={{ gap: space(3) }}>
-              <TextInput style={inputStyle} placeholder={t("auth.email")} placeholderTextColor={theme.textMuted} autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} />
-              <TextInput style={inputStyle} placeholder={t("auth.password")} placeholderTextColor={theme.textMuted} secureTextEntry value={password} onChangeText={setPassword} />
-              <PrimaryButton label={t("auth.signIn")} onPress={signInEmail} busy={busy} />
-            </View>
-          ) : (
-            <View style={{ gap: space(3) }}>
-              <TextInput style={inputStyle} placeholder={t("auth.phone")} placeholderTextColor={theme.textMuted} keyboardType="phone-pad" value={phone} onChangeText={setPhone} editable={!codeSent} />
-              {codeSent && (
-                <TextInput style={inputStyle} placeholder={t("auth.code")} placeholderTextColor={theme.textMuted} keyboardType="number-pad" value={code} onChangeText={setCode} />
-              )}
-              <PrimaryButton label={codeSent ? t("auth.verify") : t("auth.sendCode")} onPress={codeSent ? verifyCode : sendCode} busy={busy} />
-              {codeSent && <Muted>{t("auth.codeSent")}</Muted>}
-            </View>
-          )}
+          <View style={{ gap: space(3) }}>
+            <TextInput style={inputStyle} placeholder={t("auth.email")} placeholderTextColor={theme.textMuted} autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} />
+            <TextInput style={inputStyle} placeholder={t("auth.password")} placeholderTextColor={theme.textMuted} secureTextEntry value={password} onChangeText={setPassword} />
+            <PrimaryButton label={t("auth.signIn")} onPress={signInEmail} busy={busy} />
+          </View>
 
           {error && <Body style={{ color: theme.alert }}>{error}</Body>}
 
-          {/* prominent Sign Up */}
-          <View style={{ gap: space(2), marginTop: space(2) }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: space(3) }}>
-              <View style={{ flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: theme.border }} />
-              <Muted>{t("auth.or")}</Muted>
-              <View style={{ flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: theme.border }} />
-            </View>
-            <Link href="/(auth)/register" asChild>
-              <Pressable style={[styles.signup, { borderColor: theme.signal }]}>
-                <Body style={{ color: theme.signal, fontFamily: font.textSemibold, fontSize: 16 }}>
-                  {t("register.title")}
-                </Body>
-              </Pressable>
-            </Link>
-          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </Screen>
@@ -137,10 +88,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   primary: { borderRadius: radius.md, paddingVertical: space(4), alignItems: "center" },
-  signup: {
-    borderRadius: radius.md,
-    paddingVertical: space(4),
-    alignItems: "center",
-    borderWidth: 1.5,
-  },
 });
