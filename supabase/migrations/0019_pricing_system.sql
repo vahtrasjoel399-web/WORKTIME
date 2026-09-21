@@ -39,6 +39,12 @@ alter table public.shifts
 -- Existing records predate pricing selection and are therefore hourly. The
 -- best available historical rate is the worker's current employer/personal
 -- rate; future records snapshot the exact rate at creation time.
+-- The tenant guard intentionally rejects edits to closed shifts when there is
+-- no authenticated admin/service JWT. A migration runs without either, so
+-- suspend only that guard for this trusted backfill. PostgreSQL restores the
+-- trigger automatically if any later statement in this transaction fails.
+alter table public.shifts disable trigger trg_guard_shift_tenant_fields;
+
 update public.shifts s
    set pricing_type = 'hourly',
        pricing_rate = coalesce(p.hourly_rate, p.self_hourly_rate),
@@ -50,6 +56,8 @@ update public.shifts s
   from public.profiles p
  where p.id = s.user_id
    and s.pricing_type is null;
+
+alter table public.shifts enable trigger trg_guard_shift_tenant_fields;
 
 alter table public.shifts
   alter column pricing_type set default 'hourly',
