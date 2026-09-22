@@ -138,7 +138,32 @@ export async function POST(req: NextRequest) {
     if (storageError) return new NextResponse("Could not delete private employee files", { status: 500 });
   }
 
-  // deleting the auth user cascades to profile → shifts → breaks → consents
+  // Block login first, then erase public data explicitly. Relying on the Auth
+  // cascade alone makes the whole operation fail when any public audit/history
+  // table gains a restrictive foreign key.
+  const { error: banError } = await service.auth.admin.updateUserById(user_id, {
+    ban_duration: "876000h",
+  });
+  if (banError) {
+    console.error("Worker account ban before deletion failed", {
+      companyId: auth.companyId,
+      employeeId: user_id,
+      code: banError.code ?? "auth_ban_failed",
+    });
+    return new NextResponse("Töötaja kontot ei õnnestunud kustutamiseks lukustada.", { status: 500 });
+  }
+
+  const { error: profileError } = await service.from("profiles").delete().eq("id", user_id);
+  if (profileError) {
+    await service.auth.admin.updateUserById(user_id, { ban_duration: "none" });
+    console.error("Worker public data deletion failed", {
+      companyId: auth.companyId,
+      employeeId: user_id,
+      code: profileError.code,
+    });
+    return new NextResponse("Töötaja seotud andmeid ei õnnestunud kustutada.", { status: 500 });
+  }
+
   const { error } = await service.auth.admin.deleteUser(user_id);
   if (error) {
     console.error("Worker account deletion failed", {
@@ -146,7 +171,7 @@ export async function POST(req: NextRequest) {
       employeeId: user_id,
       code: error.code ?? "auth_delete_failed",
     });
-    return new NextResponse("Töötaja kontot ei õnnestunud kustutada. Proovi uuesti või kontrolli andmebaasi migratsioone.", { status: 500 });
+    return new NextResponse("Töötaja andmed kustutati ja konto lukustati, kuid Auth-konto lõplik eemaldamine vajab serveri kontrolli.", { status: 500 });
   }
   await service.from("audit_logs").insert({
     company_id: auth.companyId,
