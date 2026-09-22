@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { forcedPasswordRedirect } from "@/lib/auth-routing";
 
 type CookieToSet = { name: string; value: string; options: CookieOptions };
 
@@ -32,12 +33,12 @@ export async function proxy(req: NextRequest) {
   const isPrivacy = req.nextUrl.pathname.startsWith("/privacy");
   const isAuthCallback = req.nextUrl.pathname.startsWith("/auth/callback");
   const isAuthConfirm = req.nextUrl.pathname.startsWith("/auth/confirm");
-  const isSetPassword = req.nextUrl.pathname.startsWith("/set-password");
   if (!user && !isLogin && !isPrivacy && !isAuthCallback && !isAuthConfirm) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
-  if (user?.user_metadata?.force_password_change === true && !isSetPassword) {
-    return NextResponse.redirect(new URL("/set-password?initial=1", req.url));
+  const passwordRedirect = forcedPasswordRedirect(req.nextUrl.pathname, user?.user_metadata);
+  if (passwordRedirect) {
+    return NextResponse.redirect(new URL(passwordRedirect, req.url));
   }
   if (user && isLogin) {
     return NextResponse.redirect(new URL("/", req.url));

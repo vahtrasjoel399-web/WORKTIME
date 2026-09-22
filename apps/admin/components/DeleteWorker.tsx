@@ -14,15 +14,22 @@ export function DeleteWorker({ id, name }: { id: string; name: string }) {
 
   async function del() {
     setBusy(true);
-    const res = await fetch("/api/gdpr", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id: id, confirmation: "DELETE" }),
-    });
+    let res: Response;
+    try {
+      res = await fetch("/api/gdpr", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: id, confirmation: "DELETE" }),
+      });
+    } catch {
+      setBusy(false);
+      setConfirming(false);
+      return toast("Serveriga ei saadud ühendust. Kontrolli võrku ja proovi uuesti.", "error");
+    }
     setBusy(false);
     setConfirming(false);
     if (res.ok) { toast(`${name} kustutati.`); router.refresh(); }
-    else toast("Kustutamine ebaõnnestus.", "error");
+    else toast((await res.text()) || "Kustutamine ebaõnnestus.", "error");
   }
 
   return (

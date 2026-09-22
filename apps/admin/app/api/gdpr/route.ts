@@ -140,7 +140,14 @@ export async function POST(req: NextRequest) {
 
   // deleting the auth user cascades to profile → shifts → breaks → consents
   const { error } = await service.auth.admin.deleteUser(user_id);
-  if (error) return new NextResponse(error.message, { status: 500 });
+  if (error) {
+    console.error("Worker account deletion failed", {
+      companyId: auth.companyId,
+      employeeId: user_id,
+      code: error.code ?? "auth_delete_failed",
+    });
+    return new NextResponse("Töötaja kontot ei õnnestunud kustutada. Proovi uuesti või kontrolli andmebaasi migratsioone.", { status: 500 });
+  }
   await service.from("audit_logs").insert({
     company_id: auth.companyId,
     actor_id: auth.actorId,

@@ -6,6 +6,7 @@ import { supabaseBrowser } from "@/lib/supabase-browser";
 import type { Site } from "@/lib/types";
 import { useToast } from "./ToastProvider";
 import { EmptyState, StatusBadge } from "./ui";
+import { AddressAutocomplete } from "./AddressAutocomplete";
 
 const empty = { name: "", address: "", description: "", status: "active" as Site["status"], lat: "", lng: "", radius_m: "150" };
 
@@ -123,7 +124,22 @@ export function SiteEditor({ sites, assignmentCounts }: { sites: Site[]; assignm
       <div className="panel-pad space-y-4 self-start lg:sticky lg:top-24 lg:col-span-1">
         <div><h2 className="section-title">{editing ? "Muuda objekti" : "Lisa objekt"}</h2><p className="mt-1 text-sm text-muted">Objekti nimi ja aadress kuvatakse vahetustes ning aruannetes.</p></div>
         <label className="block"><span className="field-label">Objekti nimi</span><input className={input} placeholder="Näiteks Kesklinna büroo" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
-        <label className="block"><span className="field-label">Aadress</span><input className={input} placeholder="Tänav, linn" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} /></label>
+        <AddressAutocomplete
+          value={form.address}
+          onChange={(address) => {
+            setLocateErr(null);
+            setForm((current) => ({ ...current, address, lat: "", lng: "" }));
+          }}
+          onSelect={(suggestion) => {
+            setLocateErr(null);
+            setForm((current) => ({
+              ...current,
+              address: suggestion.label,
+              lat: suggestion.lat.toFixed(6),
+              lng: suggestion.lng.toFixed(6),
+            }));
+          }}
+        />
         <label className="block"><span className="field-label">Kirjeldus <span className="font-normal text-muted">(valikuline)</span></span><textarea className={`${input} min-h-24 resize-y`} placeholder="Ligipääs, kontakt või muu oluline info" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></label>
         <label className="block"><span className="field-label">Staatus</span><select className={input} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as Site["status"] })}>
           <option value="active">Aktiivne</option>

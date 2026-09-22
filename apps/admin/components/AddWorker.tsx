@@ -41,6 +41,9 @@ export function AddWorker({ sites, companyId, actorId }: { sites: Site[]; compan
   const [sent, setSent] = useState(false);
   const [createdId, setCreatedId] = useState<string | null>(null);
   const [createdRole, setCreatedRole] = useState<"worker" | "accountant">("worker");
+  const [createdPassword, setCreatedPassword] = useState("");
+  const [invitation, setInvitation] = useState<{ status: "sent" | "failed"; message?: string } | null>(null);
+  const [resending, setResending] = useState(false);
   const [uploadWarning, setUploadWarning] = useState<string | null>(null);
 
   async function uploadPhoto(employeeId: string, file: File): Promise<boolean> {
@@ -107,19 +110,25 @@ export function AddWorker({ sites, companyId, actorId }: { sites: Site[]; compan
     }
 
     setBusy(true);
-    const res = await fetch("/api/workers", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...form,
-        hourly_rate: parsedRate,
-      }),
-    });
+    let res: Response;
+    try {
+      res = await fetch("/api/workers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...form,
+          hourly_rate: parsedRate,
+        }),
+      });
+    } catch {
+      setBusy(false);
+      return setError("Serveriga ei saadud ühendust. Kontrolli võrku ja proovi uuesti.");
+    }
     if (!res.ok) {
       setBusy(false);
       return setError(await res.text());
     }
-    const created = (await res.json()) as { id: string };
+    const created = (await res.json()) as { id: string; invitation: { status: "sent" | "failed"; message?: string } };
     const failedUploads: string[] = [];
     if (form.role === "worker" && photo && !(await uploadPhoto(created.id, photo))) failedUploads.push("profiilifoto");
     if (form.role === "worker" && cv && !(await uploadCv(created.id, cv))) failedUploads.push("CV");
@@ -130,9 +139,46 @@ export function AddWorker({ sites, companyId, actorId }: { sites: Site[]; compan
     setCv(null);
     setCreatedId(created.id);
     setCreatedRole(form.role);
+    setCreatedPassword(form.password);
+    setInvitation(created.invitation);
     setUploadWarning(failedUploads.length > 0 ? `${failedUploads.join(" ja ")} üleslaadimine ebaõnnestus. Lisa fail töötaja profiilil.` : null);
     setSent(true);
     router.refresh();
+  }
+
+  async function resendInvitation() {
+    if (!createdId || !createdPassword) return;
+    setResending(true);
+    setError(null);
+    let response: Response;
+    try {
+      response = await fetch(`/api/workers/${createdId}/invitation`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: createdPassword }),
+      });
+    } catch {
+      setResending(false);
+      setInvitation({ status: "failed", message: "Serveriga ei saadud ühendust. Kontrolli võrku ja proovi uuesti." });
+      return;
+    }
+    setResending(false);
+    if (!response.ok) {
+      const message = await response.text();
+      setInvitation({ status: "failed", message });
+      return;
+    }
+    setInvitation({ status: "sent" });
+  }
+
+  function closeCompleted() {
+    setOpen(false);
+    setSent(false);
+    setCreatedId(null);
+    setCreatedPassword("");
+    setInvitation(null);
+    setUploadWarning(null);
+    setError(null);
   }
 
   const input = "control bg-bg";
@@ -150,11 +196,21 @@ export function AddWorker({ sites, companyId, actorId }: { sites: Site[]; compan
         <div><h3 id="add-worker-title" className="font-display text-lg font-semibold">{sent ? "Konto loodud" : t("addUser")}</h3>{!sent && <p className="mt-1 text-sm text-muted">Vali ligipääsutase, sisesta andmed ja määra ajutine parool.</p>}</div>
         {sent ? (
           <>
-            <p className="text-sm text-muted">Konto on aktiivne. Anna kasutajale e-post ja ajutine parool turvalise kanali kaudu. Esimesel sisselogimisel peab ta parooli muutma.</p>
+            {invitation?.status === "sent" ? (
+              <p className="rounded-lg border border-live/30 bg-live/10 px-3 py-2 text-sm text-live" role="status">Konto on aktiivne ja tervituskiri ajutiste sisselogimisandmetega saadeti.</p>
+            ) : (
+              <div className="space-y-2 rounded-lg border border-alert/30 bg-alert/10 px-3 py-3 text-sm text-alert" role="alert">
+                <p>{invitation?.message ?? "Konto loodi, kuid tervituskirja ei õnnestunud saata."}</p>
+                <button type="button" onClick={resendInvitation} disabled={resending} className="btn-secondary w-full sm:w-auto">
+                  {resending ? "Saadan uuesti…" : "Saada kutse uuesti"}
+                </button>
+              </div>
+            )}
+            <p className="text-sm text-muted">Esimesel sisselogimisel peab kasutaja ajutise parooli muutma.</p>
             {uploadWarning && <p className="rounded-lg border border-alert/30 bg-alert/10 px-3 py-2 text-sm text-alert">{uploadWarning}</p>}
             <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-2">
               {createdId && createdRole === "worker" && <button onClick={() => router.push(`/workers/${createdId}`)} className="btn-secondary">Ava profiil</button>}
-              <button onClick={() => { setOpen(false); setSent(false); setCreatedId(null); setUploadWarning(null); }} className="btn-primary">Valmis</button>
+              <button onClick={closeCompleted} className="btn-primary">Valmis</button>
             </div>
           </>
         ) : (<>
@@ -226,7 +282,7 @@ export function AddWorker({ sites, companyId, actorId }: { sites: Site[]; compan
             {t("cancel")}
           </button>
         </div>
-        <p className="text-xs text-muted">Konto luuakse kohe. Jaga ajutist parooli kasutajaga turvaliselt.</p>
+        <p className="text-xs text-muted">Konto luuakse kohe ja sisselogimisandmed saadetakse kasutaja e-postile.</p>
         </>)}
       </div>
     </div>

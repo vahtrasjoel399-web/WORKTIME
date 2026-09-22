@@ -16,6 +16,8 @@ export function WorkerAdmin({ worker }: { worker: Profile }) {
   const [saved, setSaved] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [temporaryPassword, setTemporaryPassword] = useState("");
+  const [resending, setResending] = useState(false);
   const toast = useToast();
 
   async function save() {
@@ -51,14 +53,44 @@ export function WorkerAdmin({ worker }: { worker: Profile }) {
 
   async function deleteData() {
     setDeleting(true);
-    const res = await fetch("/api/gdpr", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id: worker.id, confirmation: "DELETE" }),
-    });
+    let res: Response;
+    try {
+      res = await fetch("/api/gdpr", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: worker.id, confirmation: "DELETE" }),
+      });
+    } catch {
+      setDeleting(false);
+      setConfirming(false);
+      return toast("Serveriga ei saadud ühendust. Kontrolli võrku ja proovi uuesti.", "error");
+    }
     setDeleting(false);
+    setConfirming(false);
     if (res.ok) { toast("Töötaja kustutati."); router.push("/"); }
-    else toast("Kustutamine ebaõnnestus.", "error");
+    else toast((await res.text()) || "Kustutamine ebaõnnestus.", "error");
+  }
+
+  async function resendInvitation() {
+    if (temporaryPassword.length < 10 || temporaryPassword.length > 128) {
+      return toast("Ajutine parool peab sisaldama 10–128 tähemärki.", "error");
+    }
+    setResending(true);
+    let response: Response;
+    try {
+      response = await fetch(`/api/workers/${worker.id}/invitation`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: temporaryPassword }),
+      });
+    } catch {
+      setResending(false);
+      return toast("Serveriga ei saadud ühendust. Kontrolli võrku ja proovi uuesti.", "error");
+    }
+    setResending(false);
+    if (!response.ok) return toast(await response.text(), "error");
+    setTemporaryPassword("");
+    toast("Uus ajutine parool salvestati ja kutse saadeti.");
   }
 
   return (
@@ -99,6 +131,26 @@ export function WorkerAdmin({ worker }: { worker: Profile }) {
       <button onClick={save} className="btn-primary w-full">
         {saved ? "Salvestatud" : "Salvesta tasustamine"}
       </button>
+
+      <div className="border-t border-border pt-4">
+        <p className="text-sm font-medium">Saada sisselogimiskutse uuesti</p>
+        <p className="mt-1 text-xs text-muted">Määra uus ajutine parool. Kasutaja peab selle järgmisel sisselogimisel vahetama.</p>
+        <label className="mt-3 block">
+          <span className="field-label">Uus ajutine parool</span>
+          <input
+            type="password"
+            autoComplete="new-password"
+            minLength={10}
+            maxLength={128}
+            value={temporaryPassword}
+            onChange={(event) => setTemporaryPassword(event.target.value)}
+            className="control bg-bg"
+          />
+        </label>
+        <button onClick={resendInvitation} disabled={resending || temporaryPassword.length < 10} className="btn-secondary mt-3 w-full">
+          {resending ? "Saadan kutset…" : "Uuenda parool ja saada kutse"}
+        </button>
+      </div>
 
       <div className="border-t border-border pt-4">
         <p className="mb-2 text-xs text-muted">GDPR — õigus andmetele ja kustutamisele</p>

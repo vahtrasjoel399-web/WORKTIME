@@ -3,6 +3,7 @@ import { supabaseServer, supabaseService } from "@/lib/supabase-server";
 import { emailSuggestion, isValidEmail, normalizeEmail } from "@/lib/email";
 import { buildManagedProfile } from "@/lib/managed-profile";
 import type { PricingType } from "@/lib/pricing";
+import { sendInvitationEmail } from "@/lib/invitation-email";
 
 export const dynamic = "force-dynamic";
 
@@ -88,7 +89,8 @@ export async function POST(req: NextRequest) {
   });
   if (createErr || !created.user) {
     const duplicate = /already|registered|exists/i.test(createErr?.message ?? "");
-    return new NextResponse(duplicate ? "An account with this email already exists" : createErr?.message ?? "create failed", { status: duplicate ? 409 : 500 });
+    if (!duplicate) console.error("Managed account creation failed", { companyId: me.company_id, code: "auth_provider_failure" });
+    return new NextResponse(duplicate ? "An account with this email already exists" : "Authentication provider could not create the account", { status: duplicate ? 409 : 502 });
   }
 
   const profile = buildManagedProfile({
@@ -109,7 +111,8 @@ export async function POST(req: NextRequest) {
   const { error: profErr } = await service.from("profiles").insert(profile);
   if (profErr) {
     await service.auth.admin.deleteUser(created.user.id); // rollback
-    return new NextResponse(profErr.message, { status: 500 });
+    console.error("Managed profile creation failed", { companyId: me.company_id, employeeId: created.user.id, code: profErr.code });
+    return new NextResponse("Could not save the employee profile", { status: 500 });
   }
 
   let initialAssignmentId: string | null = null;
@@ -127,7 +130,8 @@ export async function POST(req: NextRequest) {
       .single();
     if (assignmentError) {
       await service.auth.admin.deleteUser(created.user.id);
-      return new NextResponse(assignmentError.message, { status: 500 });
+      console.error("Initial assignment creation failed", { companyId: me.company_id, employeeId: created.user.id, code: assignmentError.code });
+      return new NextResponse("Could not save the initial assignment", { status: 500 });
     }
     initialAssignmentId = assignment.id;
   }
@@ -158,7 +162,37 @@ export async function POST(req: NextRequest) {
     return new NextResponse("Could not record employee creation", { status: 500 });
   }
 
-  return NextResponse.json({ id: created.user.id, role: accountRole, created: true });
+  const invitation = await sendInvitationEmail({
+    employeeId: created.user.id,
+    email: cleanEmail,
+    firstName: cleanFirst,
+    temporaryPassword: password,
+    idempotencyKey: `employee-welcome/${created.user.id}`,
+  });
+  const invitationAction = invitation.ok ? "employee.invitation_sent" : "employee.invitation_failed";
+  const { error: invitationAuditError } = await service.from("audit_logs").insert({
+    company_id: me.company_id,
+    actor_id: user.id,
+    action: invitationAction,
+    target_type: accountRole,
+    target_id: created.user.id,
+    metadata: invitation.ok ? { provider: "resend", message_id: invitation.messageId } : { provider: "resend", error_code: invitation.code },
+  });
+  if (!invitation.ok) {
+    console.error("Employee invitation email failed", { companyId: me.company_id, employeeId: created.user.id, code: invitation.code });
+  }
+  if (invitationAuditError) {
+    console.error("Invitation audit write failed", { companyId: me.company_id, employeeId: created.user.id, code: invitationAuditError.code });
+  }
+
+  return NextResponse.json({
+    id: created.user.id,
+    role: accountRole,
+    created: true,
+    invitation: invitation.ok
+      ? { status: "sent" as const }
+      : { status: "failed" as const, code: invitation.code, message: invitation.message },
+  }, { status: 201 });
 }
 
 export async function DELETE(req: NextRequest) {
