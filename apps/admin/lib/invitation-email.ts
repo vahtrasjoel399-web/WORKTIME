@@ -94,11 +94,20 @@ export function buildInvitationEmail(input: Pick<InvitationEmailInput, "email" |
         </table>
         <table role="presentation" cellspacing="0" cellpadding="0"><tr><td style="border-radius:8px;background:#176b57"><a href="${safeLoginUrl}" style="display:inline-block;padding:13px 22px;color:#ffffff;text-decoration:none;font-size:16px;font-weight:700">Ava WorkTime</a></td></tr></table>
         <p style="margin:22px 0 0;font-size:14px;line-height:1.6;color:#667085">Turvalisuse huvides palutakse sul esimesel sisselogimisel ajutine parool uue vastu vahetada. Ära jaga neid andmeid teistega.</p>
+        <h2 style="margin:24px 0 10px;font-size:18px;line-height:1.35;color:#17202a">Kuidas WorkTime’i kasutada?</h2>
+        <ol style="margin:0;padding:0 0 0 22px;font-size:14px;line-height:1.7;color:#344054">
+          <li style="margin:0 0 6px">Ava WorkTime ja logi sisse selle e-posti ning ajutise parooliga.</li>
+          <li style="margin:0 0 6px">Esimesel sisselogimisel loo endale uus turvaline parool.</li>
+          <li style="margin:0 0 6px">Luba rakendusele asukohale juurdepääs. Asukoht salvestatakse ainult vahetuse alustamisel ja lõpetamisel.</li>
+          <li style="margin:0 0 6px">Tööle jõudes kontrolli ekraanil olevat objekti ja vajuta „Alusta vahetust“.</li>
+          <li style="margin:0 0 6px">Töö lõpetamisel vajuta „Lõpeta vahetus“ ja kinnita lõpetamine.</li>
+          <li>Oma töötunde ja lõpetatud vahetusi näed töötundide vaatest.</li>
+        </ol>
       </td></tr>
     </table>
   </td></tr></table>
 </body></html>`;
-  const text = `Tere, ${input.firstName}!\n\nSulle on loodud WorkTime’i konto.\n\nE-post: ${input.email}\nAjutine parool: ${input.temporaryPassword}\n\nLogi sisse: ${loginUrl}\n\nEsimesel sisselogimisel pead ajutise parooli uue vastu vahetama. Ära jaga neid andmeid teistega.`;
+  const text = `Tere, ${input.firstName}!\n\nSulle on loodud WorkTime’i konto.\n\nE-post: ${input.email}\nAjutine parool: ${input.temporaryPassword}\n\nLogi sisse: ${loginUrl}\n\nEsimesel sisselogimisel pead ajutise parooli uue vastu vahetama. Ära jaga neid andmeid teistega.\n\nKuidas WorkTime’i kasutada?\n\n1. Ava WorkTime ja logi sisse selle e-posti ning ajutise parooliga.\n2. Esimesel sisselogimisel loo endale uus turvaline parool.\n3. Luba rakendusele asukohale juurdepääs. Asukoht salvestatakse ainult vahetuse alustamisel ja lõpetamisel.\n4. Tööle jõudes kontrolli ekraanil olevat objekti ja vajuta „Alusta vahetust“.\n5. Töö lõpetamisel vajuta „Lõpeta vahetus“ ja kinnita lõpetamine.\n6. Oma töötunde ja lõpetatud vahetusi näed töötundide vaatest.`;
   return { subject, html, text };
 }
 

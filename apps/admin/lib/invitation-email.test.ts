@@ -21,6 +21,9 @@ test("HTML template escapes credentials and provides plain text", () => {
   assert.doesNotMatch(email.html, /<Joel>/);
   assert.match(email.text, /Ajutine parool: A&B<123456/);
   assert.match(email.text, /https:\/\/worktime\.example\/login/);
+  assert.match(email.html, /Kuidas WorkTime’i kasutada\?/);
+  assert.match(email.html, /Alusta vahetust/);
+  assert.match(email.text, /Asukoht salvestatakse ainult vahetuse alustamisel ja lõpetamisel/);
 });
 
 test("send returns a safe missing-key error without a request", async () => {
