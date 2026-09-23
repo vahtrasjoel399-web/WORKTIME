@@ -48,6 +48,24 @@ export function shiftTotal(
   }) ?? 0;
 }
 
+export function clientShiftTotal(
+  shift: {
+    pricing_type?: PricingType | null;
+    client_pricing_rate?: number | null;
+    client_calculated_total?: number | null;
+    worked_seconds?: number | null;
+    quantity?: number | null;
+  },
+): number | null {
+  if (shift.client_calculated_total != null) return Number(shift.client_calculated_total);
+  return calculatePricingTotal({
+    pricingType: shift.pricing_type ?? "hourly",
+    rate: shift.client_pricing_rate ?? null,
+    workedSeconds: shift.worked_seconds,
+    quantity: shift.quantity,
+  });
+}
+
 export function validPricingConfig(type: PricingType, rate: number | null, unit: string | null): string | null {
   if (rate != null && (!Number.isFinite(rate) || rate < 0 || rate > 1_000_000)) return "Kontrolli hinda.";
   if (type !== "hourly" && rate == null) return "Selle hinnatüübi jaoks sisesta hind.";

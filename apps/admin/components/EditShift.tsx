@@ -15,6 +15,8 @@ interface ShiftLite {
   pricing_rate: number | null;
   quantity: number | null;
   unit: string | null;
+  pricing_label?: string | null;
+  client_pricing_rate?: number | null;
 }
 
 // Manual correction with audit trail: every changed field is written to shift_edits
@@ -48,9 +50,11 @@ export function EditShift({ shift }: { shift: ShiftLite }) {
   const [end, setEnd] = useState(toLocalInput(shift.ended_at));
   const [breakMin, setBreakMin] = useState(String(Math.round(shift.break_seconds / 60)));
   const [pricingType, setPricingType] = useState<PricingType>(shift.pricing_type ?? "hourly");
+  const [workLabel, setWorkLabel] = useState(shift.pricing_label ?? "");
   const [pricingRate, setPricingRate] = useState(shift.pricing_rate == null ? "" : String(shift.pricing_rate));
   const [quantity, setQuantity] = useState(shift.quantity == null ? "" : String(shift.quantity));
   const [unit, setUnit] = useState(shift.unit ?? "");
+  const [clientRate, setClientRate] = useState(shift.client_pricing_rate == null ? "" : String(shift.client_pricing_rate));
   const [busy, setBusy] = useState(false);
 
   const newBreak = Math.max(0, parseInt(breakMin || "0", 10)) * 60;
@@ -59,6 +63,7 @@ export function EditShift({ shift }: { shift: ShiftLite }) {
   const changed = after != null && before != null && Math.abs(after - before) > 0.004;
   const parsedRate = pricingRate.trim() === "" ? null : Number(pricingRate.replace(",", "."));
   const parsedQuantity = quantity.trim() === "" ? null : Number(quantity.replace(",", "."));
+  const parsedClientRate = clientRate.trim() === "" ? null : Number(clientRate.replace(",", "."));
   const previewTotal = calculatePricingTotal({ pricingType, rate: parsedRate, workedSeconds: after == null ? null : Math.round(after * 3600), quantity: parsedQuantity });
 
   // Add or remove worked time by moving the end of the shift. Never past the
@@ -75,6 +80,8 @@ export function EditShift({ shift }: { shift: ShiftLite }) {
     if ((parsedRate != null && (!Number.isFinite(parsedRate) || parsedRate < 0)) || (pricingType !== "hourly" && parsedRate == null)) return;
     if (pricingType !== "hourly" && (parsedQuantity == null || !Number.isFinite(parsedQuantity) || parsedQuantity < 0)) return;
     if (pricingType === "quantity" && !unit.trim()) return;
+    if (!workLabel.trim()) return;
+    if (parsedClientRate != null && (!Number.isFinite(parsedClientRate) || parsedClientRate < 0)) return;
     setBusy(true);
     const {
       data: { user },
@@ -90,10 +97,12 @@ export function EditShift({ shift }: { shift: ShiftLite }) {
     if (newBreak !== shift.break_seconds)
       edits.push({ field: "break_seconds", old_value: String(shift.break_seconds), new_value: String(newBreak) });
     if (pricingType !== shift.pricing_type) edits.push({ field: "pricing_type", old_value: shift.pricing_type, new_value: pricingType });
+    if (workLabel.trim() !== (shift.pricing_label ?? "")) edits.push({ field: "pricing_label", old_value: shift.pricing_label ?? null, new_value: workLabel.trim() });
     if (parsedRate !== shift.pricing_rate) edits.push({ field: "pricing_rate", old_value: shift.pricing_rate == null ? null : String(shift.pricing_rate), new_value: parsedRate == null ? null : String(parsedRate) });
     if (parsedQuantity !== shift.quantity) edits.push({ field: "quantity", old_value: shift.quantity == null ? null : String(shift.quantity), new_value: parsedQuantity == null ? null : String(parsedQuantity) });
     const nextUnit = pricingType === "hourly" ? null : pricingType === "area" ? "m²" : unit.trim();
     if (nextUnit !== shift.unit) edits.push({ field: "unit", old_value: shift.unit, new_value: nextUnit });
+    if (parsedClientRate !== (shift.client_pricing_rate ?? null)) edits.push({ field: "client_pricing_rate", old_value: shift.client_pricing_rate == null ? null : String(shift.client_pricing_rate), new_value: parsedClientRate == null ? null : String(parsedClientRate) });
 
     if (edits.length > 0) {
       await supabase
@@ -106,9 +115,12 @@ export function EditShift({ shift }: { shift: ShiftLite }) {
           source: "manual",
           is_stale: false,
           pricing_type: pricingType,
+          pricing_label: workLabel.trim(),
           pricing_rate: parsedRate,
           quantity: pricingType === "hourly" ? null : parsedQuantity,
           unit: nextUnit,
+          client_pricing_rate: parsedClientRate,
+          client_rate_id: parsedClientRate === shift.client_pricing_rate ? undefined : null,
         })
         .eq("id", shift.id);
       await supabase.from("shift_edits").insert(
@@ -167,6 +179,10 @@ export function EditShift({ shift }: { shift: ShiftLite }) {
 
       <div className="space-y-2 border-t border-border pt-2">
         <label className="grid gap-1 min-[380px]:grid-cols-[minmax(0,1fr)_minmax(9rem,auto)] min-[380px]:items-center min-[380px]:gap-2">
+          <span className="text-muted">Töö nimetus</span>
+          <input value={workLabel} onChange={(event) => setWorkLabel(event.target.value)} maxLength={80} className="control min-w-0 bg-surface px-2 py-1 min-[380px]:w-36" />
+        </label>
+        <label className="grid gap-1 min-[380px]:grid-cols-[minmax(0,1fr)_minmax(9rem,auto)] min-[380px]:items-center min-[380px]:gap-2">
           <span className="text-muted">Hinna tüüp</span>
           <select value={pricingType} onChange={(event) => setPricingType(event.target.value as PricingType)} className="control min-w-0 bg-surface px-2 py-1">
             <option value="hourly">Tunnipõhine</option>
@@ -181,8 +197,12 @@ export function EditShift({ shift }: { shift: ShiftLite }) {
           </label>
         )}
         <label className="grid gap-1 min-[380px]:grid-cols-[minmax(0,1fr)_minmax(9rem,auto)] min-[380px]:items-center min-[380px]:gap-2">
-          <span className="text-muted">Hind €/{pricingUnit(pricingType, unit)}</span>
+          <span className="text-muted">Töötaja hind €/{pricingUnit(pricingType, unit)}</span>
           <input inputMode="decimal" value={pricingRate} onChange={(event) => setPricingRate(event.target.value)} className="control min-w-0 bg-surface px-2 py-1 min-[380px]:w-36" />
+        </label>
+        <label className="grid gap-1 min-[380px]:grid-cols-[minmax(0,1fr)_minmax(9rem,auto)] min-[380px]:items-center min-[380px]:gap-2">
+          <span className="text-muted">Kliendi hind €/{pricingUnit(pricingType, unit)}</span>
+          <input inputMode="decimal" value={clientRate} onChange={(event) => setClientRate(event.target.value)} placeholder="Määramata" className="control min-w-0 bg-surface px-2 py-1 min-[380px]:w-36" />
         </label>
         {pricingType !== "hourly" && (
           <label className="grid gap-1 min-[380px]:grid-cols-[minmax(0,1fr)_minmax(9rem,auto)] min-[380px]:items-center min-[380px]:gap-2">

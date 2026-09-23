@@ -36,6 +36,9 @@ export interface Site {
   country_code?: string | null;
   currency?: string;
   timezone?: string;
+  client_name?: string | null;
+  client_reg_code?: string | null;
+  client_address?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -51,6 +54,22 @@ export interface WorkerRate {
   rate: number;
   currency: string;
   is_net: boolean;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SiteClientRate {
+  id: string;
+  company_id: string;
+  site_id: string;
+  label: string;
+  pricing_type: "hourly" | "area" | "quantity";
+  unit: string | null;
+  rate: number;
+  currency: string;
+  effective_from: string;
+  effective_to: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -114,6 +133,9 @@ export interface ShiftReport {
   worker_rate_id?: string | null;
   pricing_label?: string | null;
   is_net?: boolean;
+  client_rate_id?: string | null;
+  client_pricing_rate?: number | null;
+  client_calculated_total?: number | null;
   work_date: string;
   status: "open" | "closed";
   source: "app" | "manual";

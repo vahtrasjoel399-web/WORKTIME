@@ -8,7 +8,7 @@ import { useToast } from "./ToastProvider";
 import { EmptyState, StatusBadge } from "./ui";
 import { AddressAutocomplete } from "./AddressAutocomplete";
 
-const empty = { name: "", address: "", description: "", status: "active" as Site["status"], lat: "", lng: "", radius_m: "150" };
+const empty = { name: "", address: "", description: "", client_name: "", client_reg_code: "", client_address: "", status: "active" as Site["status"], lat: "", lng: "", radius_m: "150" };
 
 // Admin RLS permits sites writes within the company, so this writes directly.
 export function SiteEditor({ sites, assignmentCounts, initialEditId }: { sites: Site[]; assignmentCounts: Record<string, number>; initialEditId?: string }) {
@@ -63,6 +63,9 @@ export function SiteEditor({ sites, assignmentCounts, initialEditId }: { sites: 
       name,
       address: form.address.trim() || null,
       description: form.description.trim() || null,
+      client_name: form.client_name.trim() || null,
+      client_reg_code: form.client_reg_code.trim() || null,
+      client_address: form.client_address.trim() || null,
       status: form.status,
       lat,
       lng,
@@ -110,6 +113,9 @@ export function SiteEditor({ sites, assignmentCounts, initialEditId }: { sites: 
       name: s.name,
       address: s.address ?? "",
       description: s.description ?? "",
+      client_name: s.client_name ?? "",
+      client_reg_code: s.client_reg_code ?? "",
+      client_address: s.client_address ?? "",
       status: s.status,
       lat: s.lat?.toString() ?? "",
       lng: s.lng?.toString() ?? "",
@@ -149,6 +155,12 @@ export function SiteEditor({ sites, assignmentCounts, initialEditId }: { sites: 
         />
         <p className="text-xs text-muted">Aadressi võib sisestada käsitsi. Koordinaatide uuendamiseks vali soovitus või vajuta „Leia koordinaadid“.</p>
         <label className="block"><span className="field-label">Kirjeldus <span className="font-normal text-muted">(valikuline)</span></span><textarea className={`${input} min-h-24 resize-y`} placeholder="Ligipääs, kontakt või muu oluline info" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></label>
+        <div className="space-y-3 border-t border-border pt-4">
+          <div><h3 className="font-medium">Klient</h3><p className="text-xs text-muted">Kasutatakse arve alusandmetes.</p></div>
+          <label className="block"><span className="field-label">Kliendi nimi</span><input className={input} placeholder="Firma OÜ" value={form.client_name} onChange={(e) => setForm({ ...form, client_name: e.target.value })} /></label>
+          <label className="block"><span className="field-label">Registrikood</span><input className={input} value={form.client_reg_code} onChange={(e) => setForm({ ...form, client_reg_code: e.target.value })} /></label>
+          <label className="block"><span className="field-label">Kliendi aadress</span><input className={input} value={form.client_address} onChange={(e) => setForm({ ...form, client_address: e.target.value })} /></label>
+        </div>
         <label className="block"><span className="field-label">Staatus</span><select className={input} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as Site["status"] })}>
           <option value="active">Aktiivne</option>
           <option value="inactive">Mitteaktiivne</option>

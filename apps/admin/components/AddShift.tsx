@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase-browser";
-import { calculatePricingTotal, pricingUnit, type PricingType } from "@/lib/pricing";
+import { calculatePricingTotal, pricingUnit, PRICING_LABELS, type PricingType } from "@/lib/pricing";
 import { money } from "@/lib/format";
 
 // Hours for a day the worker never clocked — forgot to press start, worked off
@@ -16,6 +16,7 @@ export function AddShift({
   defaultRate,
   defaultUnit,
   currency,
+  siteId,
 }: {
   userId: string;
   companyId: string;
@@ -24,6 +25,7 @@ export function AddShift({
   defaultRate: number | null;
   defaultUnit: string | null;
   currency: string;
+  siteId: string | null;
 }) {
   const supabase = supabaseBrowser();
   const router = useRouter();
@@ -33,6 +35,7 @@ export function AddShift({
   const [to, setTo] = useState("16:30");
   const [breakMin, setBreakMin] = useState("30");
   const [pricingType, setPricingType] = useState<PricingType>(defaultPricingType);
+  const [workLabel, setWorkLabel] = useState(PRICING_LABELS[defaultPricingType]);
   const [rate, setRate] = useState(defaultRate == null ? "" : String(defaultRate));
   const [quantity, setQuantity] = useState("");
   const [unit, setUnit] = useState(defaultUnit ?? "");
@@ -93,12 +96,14 @@ export function AddShift({
       .insert({
         user_id: userId,
         company_id: companyId,
+        site_id: siteId,
         started_at: started,
         ended_at: ended,
         break_seconds: breakSecs,
         status: "closed",
         source: "manual",
         pricing_type: pricingType,
+        pricing_label: workLabel.trim() || PRICING_LABELS[pricingType],
         pricing_rate: parsedRate,
         quantity: pricingType === "hourly" ? null : parsedQuantity,
         unit: pricingType === "quantity" ? unit.trim() : pricingType === "area" ? "m²" : null,
@@ -141,6 +146,10 @@ export function AddShift({
     <div className="panel-pad space-y-4 text-sm">
       <div className="font-medium">Lisa töö käsitsi — {workerName}</div>
       <div className="grid gap-2 sm:grid-cols-2">
+        <label>
+          <span className="block text-xs text-muted">Töö nimetus</span>
+          <input value={workLabel} onChange={(event) => setWorkLabel(event.target.value)} maxLength={80} placeholder="Paigaldus" className={`mt-1 w-full ${input}`} />
+        </label>
         <label>
           <span className="block text-xs text-muted">Hinna tüüp</span>
           <select value={pricingType} onChange={(event) => setPricingType(event.target.value as PricingType)} className={`mt-1 w-full ${input}`}>

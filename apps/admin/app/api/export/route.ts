@@ -5,7 +5,8 @@ import { buildMatrix, buildWeekly, type WorkerRow } from "@/lib/report";
 import { isFullWeek, isoWeek, isoWeekYear, parseYmd } from "@/lib/week";
 import type { ShiftReport } from "@/lib/types";
 import { getProfile } from "@/lib/auth";
-import { pricingUnit, PRICING_LABELS, shiftTotal } from "@/lib/pricing";
+import { clientShiftTotal, pricingUnit, PRICING_LABELS, shiftTotal } from "@/lib/pricing";
+import { summarizeClientInvoice, type ReportShift } from "@/lib/report-summary";
 
 export const dynamic = "force-dynamic";
 
@@ -45,7 +46,7 @@ export async function GET(req: NextRequest) {
   if (workerId) workersQuery = workersQuery.eq("id", workerId);
   let shiftsQuery = db
       .from("v_shift_report")
-      .select("id, user_id, site_id, site_name, started_at, ended_at, worked_seconds, pricing_type, pricing_rate, pricing_label, quantity, unit, calculated_total, is_net, work_date, out_of_zone")
+      .select("id, user_id, site_id, site_name, started_at, ended_at, worked_seconds, pricing_type, pricing_rate, pricing_label, quantity, unit, calculated_total, is_net, client_rate_id, client_pricing_rate, client_calculated_total, work_date, out_of_zone")
       .eq("company_id", profile.company_id)
       .eq("status", "closed")
       .gte("started_at", from.toISOString())
@@ -62,7 +63,7 @@ export async function GET(req: NextRequest) {
   const [workersResult, shiftsResult, sitesResult, adjustmentsResult] = await Promise.all([
     workersQuery,
     shiftsQuery,
-    db.from("sites").select("id, name, address").eq("company_id", profile.company_id),
+    db.from("sites").select("id, name, address, client_name").eq("company_id", profile.company_id),
     adjustmentsQuery,
   ]);
   if (workersResult.error || shiftsResult.error) {
@@ -78,7 +79,7 @@ export async function GET(req: NextRequest) {
   const weekly = buildWeekly(matrix, workerRows);
   const nameByWorker = new Map(matrix.workers.map((worker) => [worker.id, worker.name]));
   const siteById = new Map((sitesResult.data ?? []).map((site) => [site.id, site]));
-  const detailHeader = ["Töötaja", "Kuupäev", "Objekt", "Aadress", "Töö liik", "Kogus", "Ühik", "Hind", "Töötunnid", "Bruto", "Neto"];
+  const detailHeader = ["Töötaja", "Kuupäev", "Objekt", "Aadress", "Töö liik", "Kogus", "Ühik", "Töötaja hind", "Töötunnid", "Töötaja bruto", "Töötaja neto", "Kliendi hind", "Kliendi summa"];
   const detailRows: unknown[][] = ((shiftsResult.data ?? []) as ShiftReport[]).map((shift) => {
     const site = shift.site_id ? siteById.get(shift.site_id) : null;
     const total = shiftTotal(shift);
@@ -87,6 +88,7 @@ export async function GET(req: NextRequest) {
       shift.pricing_label ?? PRICING_LABELS[shift.pricing_type], shift.pricing_type === "hourly" ? Number(((shift.worked_seconds ?? 0) / 3600).toFixed(2)) : shift.quantity ?? "",
       pricingUnit(shift.pricing_type, shift.unit), shift.pricing_rate ?? "", Number(((shift.worked_seconds ?? 0) / 3600).toFixed(2)),
       shift.is_net === false ? Number(total.toFixed(2)) : "", shift.is_net === false ? "" : Number(total.toFixed(2)),
+      shift.client_pricing_rate ?? "", clientShiftTotal(shift) ?? "",
     ];
   });
   for (const adjustment of adjustmentsResult.data ?? []) {
@@ -94,9 +96,20 @@ export async function GET(req: NextRequest) {
     detailRows.push([
       nameByWorker.get(adjustment.employee_id) ?? "—", adjustment.period_month, site?.name ?? "", site?.address ?? "",
       `Kuu lisasumma: ${adjustment.note}`, "", "", "", "",
-      adjustment.is_net === false ? Number(adjustment.amount) : "", adjustment.is_net === false ? "" : Number(adjustment.amount),
+      adjustment.is_net === false ? Number(adjustment.amount) : "", adjustment.is_net === false ? "" : Number(adjustment.amount), "", "",
     ]);
   }
+
+  const invoiceShifts: ReportShift[] = ((shiftsResult.data ?? []) as ShiftReport[]).map((shift) => ({
+    ...shift,
+    site_address: shift.site_id ? siteById.get(shift.site_id)?.address ?? null : null,
+    site_client_name: shift.site_id ? siteById.get(shift.site_id)?.client_name ?? null : null,
+  }));
+  const invoiceSummary = summarizeClientInvoice(invoiceShifts);
+  const invoiceHeader = ["Klient", "Objekt", "Aadress", "Töö", "Kogus", "Ühik", "Kliendi hind", "Summa"];
+  const invoiceRows = invoiceSummary.map((row) => [row.clientName ?? "", row.siteName, row.siteAddress ?? "", row.label, Number(row.quantity.toFixed(3)), row.unit, row.rate, Number(row.amount.toFixed(2))]);
+  const invoiceTotal = invoiceSummary.reduce((sum, row) => sum + row.amount, 0);
+  invoiceRows.push(["KOKKU", "", "", "", "", "", "", Number(invoiceTotal.toFixed(2))]);
 
   // rows: worker, [day...], total hours, rate, gross, out-of-zone flags
   const header = ["Töötaja", "Hinna tüüp", "Ühik", ...matrix.days, "Tunnid kokku", "Hind", "Summa (salvestatud)", "Väljaspool tsooni"];
@@ -200,11 +213,16 @@ export async function GET(req: NextRequest) {
       return sheet;
     };
 
+    const invoiceSheet = addReportSheet("Kliendi arve alus", [invoiceHeader, ...invoiceRows]);
     const detailSheet = addReportSheet("Detailne aruanne", [detailHeader, ...detailRows]);
     addReportSheet("Nädalad", [weekHeader, ...weekRows, weekTotals]);
     addReportSheet("Päevad", [header, ...rows]);
     detailSheet.getColumn(10).numFmt = '#,##0.00 "€"';
     detailSheet.getColumn(11).numFmt = '#,##0.00 "€"';
+    detailSheet.getColumn(12).numFmt = '#,##0.00 "€"';
+    detailSheet.getColumn(13).numFmt = '#,##0.00 "€"';
+    invoiceSheet.getColumn(7).numFmt = '#,##0.00 "€"';
+    invoiceSheet.getColumn(8).numFmt = '#,##0.00 "€"';
     const buffer = await workbook.xlsx.writeBuffer();
     return new NextResponse(new Uint8Array(buffer), {
       headers: {
@@ -227,6 +245,8 @@ export async function GET(req: NextRequest) {
   const csv =
     "﻿" +
     block([["DETAILNE ARUANNE"], detailHeader, ...detailRows]) +
+    "\r\n\r\n" +
+    block([["KLIENDI ARVE ALUS"], invoiceHeader, ...invoiceRows]) +
     "\r\n\r\n" +
     block([["NÄDALAD"], weekHeader, ...weekRows, weekTotals]) +
     "\r\n\r\n" +

@@ -261,6 +261,7 @@ export default async function WorkerCard({
                 defaultRate={worker.hourly_rate ?? (worker.pricing_type === "hourly" ? worker.self_hourly_rate : null)}
                 defaultUnit={worker.pricing_unit}
                 currency={worker.currency}
+                siteId={currentSiteId}
               />
             </div>
             {shifts.length === 0 && <p className="text-muted">Sel kuul vahetusi pole.</p>}
@@ -302,7 +303,7 @@ export default async function WorkerCard({
                       <span className="flex items-start gap-1.5"><Icon name="location" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-live" /><span className="break-words">{s.start_address ?? "Algusaadress puudub"}</span></span>
                       {s.end_address ? <span className="mt-1 flex items-start gap-1.5"><Icon name="location" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted" /><span className="break-words">{s.end_address}</span></span> : null}
                     </span>
-                    <EditShift shift={{ id: s.id, started_at: s.started_at, ended_at: s.ended_at, break_seconds: s.break_seconds, status: s.status, pricing_type: s.pricing_type, pricing_rate: s.pricing_rate, quantity: s.quantity, unit: s.unit }} />
+                    <EditShift shift={{ id: s.id, started_at: s.started_at, ended_at: s.ended_at, break_seconds: s.break_seconds, status: s.status, pricing_type: s.pricing_type, pricing_rate: s.pricing_rate, pricing_label: s.pricing_label, quantity: s.quantity, unit: s.unit, client_pricing_rate: s.client_pricing_rate }} />
                   </div>
 
                   {shiftEdits.length > 0 && (

@@ -2,8 +2,9 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getProfile } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabase-server";
-import type { Profile, Site } from "@/lib/types";
+import type { Profile, Site, SiteClientRate } from "@/lib/types";
 import { EmptyState, MetricStrip, PageHeader, StatusBadge } from "@/components/ui";
+import { SiteClientRates } from "@/components/SiteClientRates";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,7 @@ export default async function SitePage({ params }: { params: Promise<{ id: strin
 
   const { id } = await params;
   const supabase = await supabaseServer();
-  const [{ data: site }, { data: assignments }] = await Promise.all([
+  const [{ data: site }, { data: assignments }, { data: clientRates }] = await Promise.all([
     supabase.from("sites").select("*").eq("id", id).maybeSingle(),
     supabase
       .from("employee_assignments")
@@ -27,6 +28,7 @@ export default async function SitePage({ params }: { params: Promise<{ id: strin
       .eq("site_id", id)
       .is("end_date", null)
       .order("start_date"),
+    supabase.from("site_client_rates").select("*").eq("site_id", id).order("effective_from", { ascending: false }),
   ]);
   if (!site) notFound();
 
@@ -51,11 +53,14 @@ export default async function SitePage({ params }: { params: Promise<{ id: strin
 
       <PageHeader eyebrow="Objekti ülevaade" title={object.name} description={object.address || "Aadress puudub"} actions={<><StatusBadge tone={object.status === "active" ? "live" : "neutral"}>{object.status === "active" ? "Aktiivne" : "Mitteaktiivne"}</StatusBadge><Link href={`/sites?edit=${object.id}`} className="btn-secondary">Muuda objekti</Link></>} />
       {object.description && <p className="panel-pad whitespace-pre-wrap text-sm leading-6">{object.description}</p>}
+      {object.client_name && <div className="panel-pad"><div className="text-xs font-medium uppercase tracking-wide text-muted">Klient</div><div className="mt-1 font-semibold">{object.client_name}</div><div className="mt-1 text-sm text-muted">{[object.client_reg_code, object.client_address].filter(Boolean).join(" · ")}</div></div>}
       <MetricStrip items={[
         { label: "Määratud töötajaid", value: workers.length },
         { label: "Tööpiirkonna raadius", value: `${object.radius_m} m` },
         { label: "Koordinaadid", value: object.lat != null && object.lng != null ? `${object.lat.toFixed(5)}, ${object.lng.toFixed(5)}` : "Määramata" },
       ]} />
+
+      <SiteClientRates companyId={me.company_id} siteId={object.id} currency={object.currency ?? "EUR"} rates={(clientRates ?? []) as SiteClientRate[]} />
 
       <section className="space-y-3">
         <div>
