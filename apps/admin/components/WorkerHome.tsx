@@ -123,13 +123,20 @@ export function WorkerHome({
   const activeUnit = shift?.unit ?? profile.pricing_unit;
   const now = new Date();
   const thisWeekKey = weekKey(now);
+  const thisMonth = now.getUTCFullYear() * 12 + now.getUTCMonth();
   const running = phase !== "idle" ? seconds : 0;
 
-  const weekRows = shifts.filter((s) => weekKey(new Date(s.started_at)) === thisWeekKey);
-  const weekSeconds = weekRows.reduce((a, s) => a + (s.worked_seconds ?? 0), 0) + running;
-  const closedWeekEarned = weekRows.reduce((sum, row) => sum + shiftTotal(row, rateRes.rate), 0);
-  const runningEarned = pricingType === "hourly" ? resolveEarnings(running, profile.hourly_rate, profile.self_hourly_rate).amount : 0;
-  const weekEarned = closedWeekEarned + runningEarned;
+  const monthRows = shifts.filter((s) => {
+    const date = new Date(s.started_at);
+    return date.getUTCFullYear() * 12 + date.getUTCMonth() === thisMonth;
+  });
+  const monthSeconds = monthRows.reduce((sum, row) => sum + (row.worked_seconds ?? 0), 0) + running;
+  const monthQuantities = Object.entries(monthRows.reduce<Record<string, number>>((totals, row) => {
+    if (row.pricing_type === "hourly" || row.quantity == null) return totals;
+    const unit = row.pricing_type === "area" ? "m²" : row.unit?.trim() || "tk";
+    totals[unit] = (totals[unit] ?? 0) + row.quantity;
+    return totals;
+  }, {})).sort(([left], [right]) => left.localeCompare(right));
 
   // history grouped into pay weeks, newest first
   const byWeek: { key: string; label: string; seconds: number; amount: number; rows: Shift[] }[] = [];
@@ -302,12 +309,15 @@ export function WorkerHome({
       ) : (
         <div className="flex-1 space-y-4">
           <div className="panel p-4 text-center">
-            <div className="text-sm text-muted">{t("weekTotal")}</div>
-            <div className="tabular text-3xl font-semibold">{hours1(weekSeconds)} {t("hoursUnit")}</div>
-            {showEarn && weekEarned > 0 && (
-              <div className="tabular text-lg font-semibold text-signal">{money(weekEarned, profile.currency)}</div>
+            <div className="text-sm text-muted">{t("monthTotal")}</div>
+            <div className="tabular text-3xl font-semibold">{hours1(monthSeconds)} {t("hoursUnit")}</div>
+            {monthQuantities.length > 0 && (
+              <div className="mt-2 flex flex-wrap justify-center gap-x-3 gap-y-1 text-sm text-muted">
+                {monthQuantities.map(([unit, quantity]) => (
+                  <span key={unit} className="tabular"><b className="font-semibold text-text">{quantity.toLocaleString(undefined, { maximumFractionDigits: 2 })}</b> {unit}</span>
+                ))}
+              </div>
             )}
-            <div className="mt-1 text-xs text-muted">{t("paidWeekly")}</div>
           </div>
 
           {byWeek.length === 0 ? (
