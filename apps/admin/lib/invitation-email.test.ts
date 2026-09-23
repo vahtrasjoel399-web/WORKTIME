@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildInvitationEmail, isValidSender, resolveAppUrl, sendInvitationEmail } from "./invitation-email.ts";
+import { buildInvitationEmail, isValidSender, mapResendFailure, resolveAppUrl, sendInvitationEmail } from "./invitation-email.ts";
 
 test("sender validation accepts Resend syntax and rejects malformed configuration", () => {
   assert.equal(isValidSender("WorkTime <onboarding@resend.dev>"), true);
@@ -63,6 +63,22 @@ test("send maps provider rejection without exposing its response", async () => {
     assert.equal(result.code, "provider_rejected");
     assert.doesNotMatch(result.message, /secret provider detail/);
   }
+});
+
+test("Resend failures distinguish invalid keys, test recipients, domains, and rate limits", () => {
+  assert.equal(mapResendFailure(401, { message: "Invalid API key: re_secret" }).ok, false);
+  assert.deepEqual(mapResendFailure(401, { message: "Invalid API key: re_secret" }), {
+    ok: false,
+    code: "invalid_api_key",
+    message: "Resend API-võti ei kehti. Loo Resendis uus Sending access võti ja uuenda Vercelis RESEND_API_KEY väärtust.",
+  });
+  const restricted = mapResendFailure(403, { message: "You can only send testing emails to your own email address" });
+  assert.equal(restricted.ok ? "" : restricted.code, "test_recipient_restricted");
+  const domain = mapResendFailure(403, { message: "The example.com domain is not verified" });
+  assert.equal(domain.ok ? "" : domain.code, "unverified_sender");
+  const limited = mapResendFailure(429, { message: "Too many requests" });
+  assert.equal(limited.ok ? "" : limited.code, "rate_limited");
+  assert.doesNotMatch(JSON.stringify(mapResendFailure(401, { message: "Invalid API key: re_secret" })), /re_secret/);
 });
 
 test("send maps request timeout", async () => {

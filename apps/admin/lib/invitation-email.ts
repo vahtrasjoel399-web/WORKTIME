@@ -8,6 +8,10 @@ export type InvitationEmailCode =
   | "missing_api_key"
   | "invalid_sender"
   | "invalid_app_url"
+  | "invalid_api_key"
+  | "unverified_sender"
+  | "test_recipient_restricted"
+  | "rate_limited"
   | "timeout"
   | "provider_rejected"
   | "network_error";
@@ -23,6 +27,25 @@ export type InvitationEmailInput = {
   temporaryPassword: string;
   idempotencyKey: string;
 };
+
+type ResendErrorPayload = { name?: unknown; message?: unknown; statusCode?: unknown } | null;
+
+export function mapResendFailure(status: number, payload: ResendErrorPayload): InvitationEmailResult {
+  const detail = typeof payload?.message === "string" ? payload.message.toLowerCase() : "";
+  if (status === 401 || detail.includes("api key")) {
+    return { ok: false, code: "invalid_api_key", message: "Resend API-võti ei kehti. Loo Resendis uus Sending access võti ja uuenda Vercelis RESEND_API_KEY väärtust." };
+  }
+  if (detail.includes("only send") || detail.includes("your own email") || detail.includes("testing email")) {
+    return { ok: false, code: "test_recipient_restricted", message: "Resendi test-saatja saab saata ainult konto omaniku aadressile või delivered@resend.dev testaadressile. Teistele töötajatele saatmiseks kinnita oma domeen." };
+  }
+  if (detail.includes("domain") || detail.includes("verify") || detail.includes("from address") || detail.includes("sender")) {
+    return { ok: false, code: "unverified_sender", message: "Resend ei luba seda saatja aadressi. Kontrolli, et EMAIL_FROM kasutaks Resendis kinnitatud domeeni, või testi aadressiga WorkTime <onboarding@resend.dev>." };
+  }
+  if (status === 429) {
+    return { ok: false, code: "rate_limited", message: "Resendi saatmislimiit sai täis. Oota hetk ja proovi uuesti." };
+  }
+  return { ok: false, code: "provider_rejected", message: "Resend lükkas kirja tagasi. Ava Resend → Logs, kontrolli viimase päringu põhjust ja proovi uuesti." };
+}
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (character) => ({
@@ -106,10 +129,8 @@ export async function sendInvitationEmail(
       body: JSON.stringify({ from: from.trim(), to: [recipient], subject: content.subject, html: content.html, text: content.text }),
       signal: controller.signal,
     });
-    const payload = await response.json().catch(() => null) as { id?: string } | null;
-    if (!response.ok || !payload?.id) {
-      return { ok: false, code: "provider_rejected", message: "Konto loodi, kuid tervituskirja ei õnnestunud saata. Kontrolli Resendi seadistust ja proovi uuesti." };
-    }
+    const payload = await response.json().catch(() => null) as ({ id?: string } & NonNullable<ResendErrorPayload>) | null;
+    if (!response.ok || !payload?.id) return mapResendFailure(response.status, payload);
     return { ok: true, messageId: payload.id };
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") return { ok: false, code: "timeout", message: "E-posti teenus ei vastanud õigel ajal. Proovi hetke pärast uuesti." };
