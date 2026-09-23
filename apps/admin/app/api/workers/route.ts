@@ -117,6 +117,26 @@ export async function POST(req: NextRequest) {
     return new NextResponse("Could not save the employee profile", { status: 500 });
   }
 
+  if (accountRole === "worker" && rate != null) {
+    const { error: rateErr } = await service.from("worker_rates").insert({
+      company_id: me.company_id,
+      employee_id: created.user.id,
+      site_id: initialSiteId || null,
+      label: pricingType === "hourly" ? "Tunnitöö" : pricingType === "area" ? "Pindala" : "Kogusetöö",
+      pricing_type: pricingType,
+      unit: pricingType === "hourly" ? null : pricingType === "area" ? "m²" : pricingUnit,
+      rate,
+      currency: "EUR",
+      is_net: true,
+      created_by: user.id,
+    });
+    if (rateErr) {
+      await service.auth.admin.deleteUser(created.user.id);
+      console.error("Worker rate creation failed", { companyId: me.company_id, employeeId: created.user.id, code: rateErr.code });
+      return new NextResponse("Could not save the worker pay rate", { status: 500 });
+    }
+  }
+
   let initialAssignmentId: string | null = null;
   if (accountRole === "worker" && initialSiteId) {
     const { data: assignment, error: assignmentError } = await service
