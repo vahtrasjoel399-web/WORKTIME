@@ -123,25 +123,13 @@ export function WorkerHome({
   const activeUnit = shift?.unit ?? profile.pricing_unit;
   const now = new Date();
   const thisWeekKey = weekKey(now);
-  const thisMonth = now.getUTCFullYear() * 12 + now.getUTCMonth();
   const running = phase !== "idle" ? seconds : 0;
 
   const weekRows = shifts.filter((s) => weekKey(new Date(s.started_at)) === thisWeekKey);
   const weekSeconds = weekRows.reduce((a, s) => a + (s.worked_seconds ?? 0), 0) + running;
-  const monthSeconds =
-    shifts.reduce((a, s) => {
-      const d = new Date(s.started_at);
-      return d.getUTCFullYear() * 12 + d.getUTCMonth() === thisMonth ? a + (s.worked_seconds ?? 0) : a;
-    }, 0) + running;
   const closedWeekEarned = weekRows.reduce((sum, row) => sum + shiftTotal(row, rateRes.rate), 0);
-  const monthRows = shifts.filter((s) => {
-    const d = new Date(s.started_at);
-    return d.getUTCFullYear() * 12 + d.getUTCMonth() === thisMonth;
-  });
-  const closedMonthEarned = monthRows.reduce((sum, row) => sum + shiftTotal(row, rateRes.rate), 0);
   const runningEarned = pricingType === "hourly" ? resolveEarnings(running, profile.hourly_rate, profile.self_hourly_rate).amount : 0;
   const weekEarned = closedWeekEarned + runningEarned;
-  const monthEarned = closedMonthEarned + runningEarned;
 
   // history grouped into pay weeks, newest first
   const byWeek: { key: string; label: string; seconds: number; amount: number; rows: Shift[] }[] = [];
@@ -310,18 +298,6 @@ export function WorkerHome({
             </div>
           )}
 
-          {/* pay week total */}
-          <div className="panel p-4 text-center">
-            <div className="text-sm text-muted">{t("weekTotal")}</div>
-            <div className="tabular text-2xl font-semibold">{hours1(weekSeconds)} {t("hoursUnit")}</div>
-            {showEarn && weekEarned > 0 && (
-              <div className="tabular text-lg font-semibold text-signal">{money(weekEarned, profile.currency)}</div>
-            )}
-            <div className="mt-1 text-xs text-muted">
-              {t("paidWeekly")} · {t("monthTotal").toLowerCase()} {hours1(monthSeconds)} {t("hoursUnit")}
-              {showEarn && monthEarned > 0 ? ` · ${money(monthEarned, profile.currency)}` : ""}
-            </div>
-          </div>
         </>
       ) : (
         <div className="flex-1 space-y-4">
