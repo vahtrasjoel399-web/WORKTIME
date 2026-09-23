@@ -49,7 +49,7 @@ export default async function SitePage({ params }: { params: Promise<{ id: strin
     <div className="page-stack">
       <Link href="/sites" className="inline-flex text-sm font-medium text-muted hover:text-primary">← Kõik objektid</Link>
 
-      <PageHeader eyebrow="Objekti ülevaade" title={object.name} description={object.address || "Aadress puudub"} actions={<><StatusBadge tone={object.status === "active" ? "live" : "neutral"}>{object.status === "active" ? "Aktiivne" : "Mitteaktiivne"}</StatusBadge><Link href="/sites" className="btn-secondary">Muuda objekti</Link></>} />
+      <PageHeader eyebrow="Objekti ülevaade" title={object.name} description={object.address || "Aadress puudub"} actions={<><StatusBadge tone={object.status === "active" ? "live" : "neutral"}>{object.status === "active" ? "Aktiivne" : "Mitteaktiivne"}</StatusBadge><Link href={`/sites?edit=${object.id}`} className="btn-secondary">Muuda objekti</Link></>} />
       {object.description && <p className="panel-pad whitespace-pre-wrap text-sm leading-6">{object.description}</p>}
       <MetricStrip items={[
         { label: "Määratud töötajaid", value: workers.length },

@@ -5,7 +5,7 @@ import { buildMatrix, buildWeekly, type WorkerRow } from "@/lib/report";
 import { isFullWeek, isoWeek, isoWeekYear, parseYmd } from "@/lib/week";
 import type { ShiftReport } from "@/lib/types";
 import { getProfile } from "@/lib/auth";
-import { pricingUnit, PRICING_LABELS } from "@/lib/pricing";
+import { pricingUnit, PRICING_LABELS, shiftTotal } from "@/lib/pricing";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +23,8 @@ export async function GET(req: NextRequest) {
   }
   const fromStr = req.nextUrl.searchParams.get("from") ?? "";
   const toStr = req.nextUrl.searchParams.get("to") ?? "";
+  const workerId = req.nextUrl.searchParams.get("worker") ?? "";
+  const siteId = req.nextUrl.searchParams.get("site") ?? "";
   if (!/^\d{4}-\d{2}-\d{2}$/.test(fromStr) || !/^\d{4}-\d{2}-\d{2}$/.test(toStr)) {
     return new NextResponse("Invalid date range", { status: 400 });
   }
@@ -39,15 +41,29 @@ export async function GET(req: NextRequest) {
 
   const supabase = await supabaseServer();
   const db = profile.role === "accountant" ? supabaseService() : supabase;
-  const [workersResult, shiftsResult] = await Promise.all([
-    db.from("profiles").select("id, first_name, last_name, hourly_rate, self_hourly_rate, pricing_type, pricing_unit, currency").eq("company_id", profile.company_id).eq("role", "worker").order("last_name"),
-    db
+  let workersQuery = db.from("profiles").select("id, first_name, last_name, hourly_rate, self_hourly_rate, pricing_type, pricing_unit, currency").eq("company_id", profile.company_id).eq("role", "worker").order("last_name");
+  if (workerId) workersQuery = workersQuery.eq("id", workerId);
+  let shiftsQuery = db
       .from("v_shift_report")
-      .select("id, user_id, worked_seconds, pricing_type, pricing_rate, quantity, calculated_total, work_date, out_of_zone")
+      .select("id, user_id, site_id, site_name, started_at, ended_at, worked_seconds, pricing_type, pricing_rate, pricing_label, quantity, unit, calculated_total, is_net, work_date, out_of_zone")
       .eq("company_id", profile.company_id)
       .eq("status", "closed")
       .gte("started_at", from.toISOString())
-      .lt("started_at", to.toISOString()),
+      .lt("started_at", to.toISOString());
+  if (workerId) shiftsQuery = shiftsQuery.eq("user_id", workerId);
+  if (siteId) shiftsQuery = shiftsQuery.eq("site_id", siteId);
+  let adjustmentsQuery = db.from("monthly_adjustments")
+    .select("id, employee_id, site_id, period_month, amount, currency, is_net, note")
+    .eq("company_id", profile.company_id)
+    .gte("period_month", fromStr.slice(0, 7) + "-01")
+    .lte("period_month", toStr.slice(0, 7) + "-01");
+  if (workerId) adjustmentsQuery = adjustmentsQuery.eq("employee_id", workerId);
+  if (siteId) adjustmentsQuery = adjustmentsQuery.eq("site_id", siteId);
+  const [workersResult, shiftsResult, sitesResult, adjustmentsResult] = await Promise.all([
+    workersQuery,
+    shiftsQuery,
+    db.from("sites").select("id, name, address").eq("company_id", profile.company_id),
+    adjustmentsQuery,
   ]);
   if (workersResult.error || shiftsResult.error) {
     console.error("Payroll export query failed", {
@@ -60,9 +76,30 @@ export async function GET(req: NextRequest) {
   const workerRows = (workersResult.data ?? []) as WorkerRow[];
   const matrix = buildMatrix((shiftsResult.data ?? []) as ShiftReport[], workerRows, from, to);
   const weekly = buildWeekly(matrix, workerRows);
+  const nameByWorker = new Map(matrix.workers.map((worker) => [worker.id, worker.name]));
+  const siteById = new Map((sitesResult.data ?? []).map((site) => [site.id, site]));
+  const detailHeader = ["Töötaja", "Kuupäev", "Objekt", "Aadress", "Töö liik", "Kogus", "Ühik", "Hind", "Töötunnid", "Bruto", "Neto"];
+  const detailRows: unknown[][] = ((shiftsResult.data ?? []) as ShiftReport[]).map((shift) => {
+    const site = shift.site_id ? siteById.get(shift.site_id) : null;
+    const total = shiftTotal(shift);
+    return [
+      nameByWorker.get(shift.user_id) ?? "—", shift.work_date, shift.site_name ?? "Objekt määramata", site?.address ?? "",
+      shift.pricing_label ?? PRICING_LABELS[shift.pricing_type], shift.pricing_type === "hourly" ? Number(((shift.worked_seconds ?? 0) / 3600).toFixed(2)) : shift.quantity ?? "",
+      pricingUnit(shift.pricing_type, shift.unit), shift.pricing_rate ?? "", Number(((shift.worked_seconds ?? 0) / 3600).toFixed(2)),
+      shift.is_net === false ? Number(total.toFixed(2)) : "", shift.is_net === false ? "" : Number(total.toFixed(2)),
+    ];
+  });
+  for (const adjustment of adjustmentsResult.data ?? []) {
+    const site = adjustment.site_id ? siteById.get(adjustment.site_id) : null;
+    detailRows.push([
+      nameByWorker.get(adjustment.employee_id) ?? "—", adjustment.period_month, site?.name ?? "", site?.address ?? "",
+      `Kuu lisasumma: ${adjustment.note}`, "", "", "", "",
+      adjustment.is_net === false ? Number(adjustment.amount) : "", adjustment.is_net === false ? "" : Number(adjustment.amount),
+    ]);
+  }
 
   // rows: worker, [day...], total hours, rate, gross, out-of-zone flags
-  const header = ["Töötaja", "Hinna tüüp", "Ühik", ...matrix.days, "Tunnid kokku", "Hind", "Bruto (orient.)", "Väljaspool tsooni"];
+  const header = ["Töötaja", "Hinna tüüp", "Ühik", ...matrix.days, "Tunnid kokku", "Hind", "Summa (salvestatud)", "Väljaspool tsooni"];
   const rows = matrix.workers.map((w) => {
     const totalH = matrix.totalsByWorker[w.id] / 3600;
     const gross = matrix.earningsByWorker[w.id];
@@ -89,7 +126,7 @@ export async function GET(req: NextRequest) {
     "Hind",
     ...weekly.weeks.flatMap((w) => [`${w.label} h`, `${w.label} €`]),
     "Tunnid kokku",
-    "Bruto kokku",
+    "Summa kokku",
   ];
   const weekRows = matrix.workers.map((w) => [
     w.name,
@@ -118,9 +155,10 @@ export async function GET(req: NextRequest) {
   ];
 
   // A single-week export is named by its ISO week — that is how pay runs are filed.
+  const scope = workerId ? `_${workerId.slice(0, 8)}` : "";
   const filename = isFullWeek(from, to)
-    ? `tooaeg_${isoWeekYear(from)}-N${String(isoWeek(from)).padStart(2, "0")}_${fromStr}_${toStr}`
-    : `tooaeg_${fromStr}_${toStr}`;
+    ? `tooaeg${scope}_${isoWeekYear(from)}-N${String(isoWeek(from)).padStart(2, "0")}_${fromStr}_${toStr}`
+    : `tooaeg${scope}_${fromStr}_${toStr}`;
 
   const { error: auditError } = await supabaseService().from("audit_logs").insert({
     company_id: profile.company_id,
@@ -128,12 +166,13 @@ export async function GET(req: NextRequest) {
     action: "payroll.exported",
     target_type: "company",
     target_id: profile.company_id,
-    metadata: { format, from: fromStr, to: toStr },
+    metadata: { format, from: fromStr, to: toStr, worker_id: workerId || null, site_id: siteId || null },
   });
   if (auditError) return new NextResponse("Could not record export audit event", { status: 500 });
 
   if (format === "xlsx") {
     const workbook = new ExcelJS.Workbook();
+    workbook.addWorksheet("Detailne aruanne").addRows([detailHeader, ...detailRows]);
     workbook.addWorksheet("Nädalad").addRows([weekHeader, ...weekRows, weekTotals]);
     workbook.addWorksheet("Päevad").addRows([header, ...rows]);
     const buffer = await workbook.xlsx.writeBuffer();
@@ -157,6 +196,8 @@ export async function GET(req: NextRequest) {
   const block = (aoa: unknown[][]) => aoa.map((r) => r.map(esc).join(";")).join("\r\n");
   const csv =
     "﻿" +
+    block([["DETAILNE ARUANNE"], detailHeader, ...detailRows]) +
+    "\r\n\r\n" +
     block([["NÄDALAD"], weekHeader, ...weekRows, weekTotals]) +
     "\r\n\r\n" +
     block([["PÄEVAD"], header, ...rows]);

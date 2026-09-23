@@ -7,7 +7,8 @@ import { PageHeader } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
-export default async function SitesPage() {
+export default async function SitesPage({ searchParams }: { searchParams: Promise<{ edit?: string }> }) {
+  const query = await searchParams;
   const me = await getProfile();
   if (!me) redirect("/login");
   if (me.role !== "admin") redirect(me.role === "accountant" ? "/reports" : "/me");
@@ -24,7 +25,7 @@ export default async function SitesPage() {
   return (
     <div className="page-stack">
       <PageHeader eyebrow="Töökohtade haldus" title="Objektid" description="Halda objektide aadresse, tööpiirkondi ja töötajate määramisi. Väljaspool määratud ala alustatud töö märgitakse aruandes." />
-      <SiteEditor sites={(sites ?? []) as Site[]} assignmentCounts={assignmentCounts} />
+      <SiteEditor sites={(sites ?? []) as Site[]} assignmentCounts={assignmentCounts} initialEditId={query.edit} />
     </div>
   );
 }

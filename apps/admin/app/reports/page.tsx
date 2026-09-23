@@ -2,281 +2,104 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { supabaseServer, supabaseService } from "@/lib/supabase-server";
 import { getProfile } from "@/lib/auth";
-import { buildMatrix, buildWeekly, type WorkerRow } from "@/lib/report";
 import { hours1, money } from "@/lib/format";
-import { addWeeks, isFullWeek, isoWeek, parseYmd, startOfWeek, weekRange, ymd } from "@/lib/week";
-import type { ShiftReport } from "@/lib/types";
-import { ExportButtons } from "@/components/ExportButtons";
+import { parseYmd, ymd } from "@/lib/week";
 import { pricingUnit, PRICING_LABELS, shiftTotal } from "@/lib/pricing";
-import { EmptyState, MetricStrip, PageHeader, StatusBadge } from "@/components/ui";
-import { T } from "@/components/T";
+import { formatQuantity, summarizeSites, summarizeWorkers, type ReportShift } from "@/lib/report-summary";
+import type { Site } from "@/lib/types";
+import { ExportButtons } from "@/components/ExportButtons";
+import { EmptyState, MetricStrip, PageHeader } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
+type Query = { from?: string; to?: string; worker?: string; site?: string; preset?: string };
 
-const DOW = ["E", "T", "K", "N", "R", "L", "P"];
-
-export default async function ReportsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ from?: string; to?: string }>;
-}) {
+export default async function ReportsPage({ searchParams }: { searchParams: Promise<Query> }) {
   const query = await searchParams;
   const me = await getProfile();
   if (!me) redirect("/login");
   if (me.role === "worker") redirect("/me");
-  // Pay runs weekly (D-015), so the period defaults to the running week and the
-  // page rolls over to the next one by itself every Monday.
-  const thisWeek = weekRange(new Date());
-  const fromStr = query.from ?? thisWeek.from;
-  const toStr = query.to ?? thisWeek.to;
-  const from = parseYmd(fromStr);
-  const to = parseYmd(toStr);
-  to.setUTCDate(to.getUTCDate() + 1); // inclusive end day
+
+  const current = monthRange(new Date());
+  const previous = monthRange(new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth() - 1, 1)));
+  const preset = query.preset === "previous" ? "previous" : query.preset === "custom" ? "custom" : "current";
+  const range = preset === "previous" ? previous : preset === "custom" && validDate(query.from) && validDate(query.to) ? { from: query.from!, to: query.to! } : current;
+  const from = parseYmd(range.from);
+  const toExclusive = parseYmd(range.to);
+  toExclusive.setUTCDate(toExclusive.getUTCDate() + 1);
 
   const supabase = await supabaseServer();
   const db = me.role === "accountant" ? supabaseService() : supabase;
-  const [{ data: workers }, { data: shiftsRaw }] = await Promise.all([
-    db.from("profiles").select("id, first_name, last_name, hourly_rate, self_hourly_rate, pricing_type, pricing_unit, currency").eq("company_id", me.company_id).eq("role", "worker").order("last_name"),
-    db
-      .from("v_shift_report")
-      .select("id, user_id, site_id, site_name, worked_seconds, pricing_type, pricing_rate, quantity, unit, calculated_total, pricing_label, is_net, work_date, out_of_zone, started_at")
-      .eq("company_id", me.company_id)
-      .eq("status", "closed")
-      .gte("started_at", from.toISOString())
-      .lt("started_at", to.toISOString()),
+  const [{ data: workersRaw }, { data: sitesRaw }] = await Promise.all([
+    db.from("profiles").select("id, first_name, last_name, currency").eq("company_id", me.company_id).eq("role", "worker").order("last_name"),
+    db.from("sites").select("*").eq("company_id", me.company_id).order("name"),
   ]);
+  const workers = workersRaw ?? [];
+  const sites = (sitesRaw ?? []) as Site[];
+  const workerId = workers.some((worker) => worker.id === query.worker) ? query.worker! : "";
+  const siteId = sites.some((site) => site.id === query.site) ? query.site! : "";
 
-  const { data: adjustmentsRaw } = await db
-    .from("monthly_adjustments")
-    .select("employee_id, site_id, amount, currency, note, period_month")
+  let shiftsQuery = db.from("v_shift_report")
+    .select("id, user_id, site_id, site_name, work_date, started_at, ended_at, worked_seconds, pricing_type, pricing_rate, pricing_label, quantity, unit, calculated_total, is_net, out_of_zone")
+    .eq("company_id", me.company_id).eq("status", "closed")
+    .gte("started_at", from.toISOString()).lt("started_at", toExclusive.toISOString());
+  if (workerId) shiftsQuery = shiftsQuery.eq("user_id", workerId);
+  if (siteId) shiftsQuery = shiftsQuery.eq("site_id", siteId);
+  let adjustmentsQuery = db.from("monthly_adjustments")
+    .select("id, employee_id, site_id, period_month, amount, currency, is_net, note")
     .eq("company_id", me.company_id)
-    .gte("period_month", fromStr.slice(0, 7) + "-01")
-    .lte("period_month", toStr.slice(0, 7) + "-01");
+    .gte("period_month", range.from.slice(0, 7) + "-01").lte("period_month", range.to.slice(0, 7) + "-01");
+  if (workerId) adjustmentsQuery = adjustmentsQuery.eq("employee_id", workerId);
+  if (siteId) adjustmentsQuery = adjustmentsQuery.eq("site_id", siteId);
+  const [{ data: shiftRows }, { data: adjustments }] = await Promise.all([shiftsQuery.order("started_at", { ascending: false }), adjustmentsQuery.order("period_month", { ascending: false })]);
 
-  const workerRows = (workers ?? []) as WorkerRow[];
-  const matrix = buildMatrix((shiftsRaw ?? []) as ShiftReport[], workerRows, from, to);
-  const grandTotal = Object.values(matrix.totalsByWorker).reduce((a, b) => a + b, 0);
-  const grandEarned = Object.values(matrix.earningsByWorker).reduce((a, b) => a + b, 0);
-  const currency = matrix.workers[0]?.currency ?? "EUR";
-
-  const weekly = buildWeekly(matrix, workerRows);
-  const oneWeek = isFullWeek(from, to);
-  const multiWeek = weekly.weeks.length > 1;
-
-  const prev = weekRange(addWeeks(from, -1));
-  const next = weekRange(addWeeks(from, 1));
-  const href = (r: { from: string; to: string }) => `/reports?from=${r.from}&to=${r.to}`;
-  const isCurrent = fromStr === thisWeek.from && toStr === thisWeek.to;
-  const workerName = new Map(workerRows.map((worker) => [worker.id, `${worker.first_name} ${worker.last_name}`]));
-  const breakdown = new Map<string, { worker: string; site: string; label: string; unit: string; hours: number; quantity: number; earned: number }>();
-  for (const shift of (shiftsRaw ?? []) as ShiftReport[]) {
-    const label = shift.pricing_label ?? PRICING_LABELS[shift.pricing_type ?? "hourly"];
-    const unit = shift.pricing_type === "hourly" ? "h" : shift.unit ?? (shift.pricing_type === "area" ? "m²" : "ühik");
-    const key = `${shift.user_id}|${shift.site_id ?? "none"}|${label}|${unit}`;
-    const row = breakdown.get(key) ?? { worker: workerName.get(shift.user_id) ?? "—", site: shift.site_name ?? "Objekt määramata", label, unit, hours: 0, quantity: 0, earned: 0 };
-    row.hours += (shift.worked_seconds ?? 0) / 3600;
-    row.quantity += shift.pricing_type === "hourly" ? 0 : shift.quantity ?? 0;
-    row.earned += shiftTotal(shift, null);
-    breakdown.set(key, row);
+  const siteById = new Map(sites.map((site) => [site.id, site]));
+  const shifts = ((shiftRows ?? []) as ReportShift[]).map((shift) => ({ ...shift, site_address: shift.site_id ? siteById.get(shift.site_id)?.address ?? null : null }));
+  const visibleWorkers = workerId ? workers.filter((worker) => worker.id === workerId) : workers;
+  const adjustmentTotals = new Map<string, { gross: number; net: number }>();
+  for (const item of adjustments ?? []) {
+    const value = adjustmentTotals.get(item.employee_id) ?? { gross: 0, net: 0 };
+    if (item.is_net === false) value.gross += Number(item.amount); else value.net += Number(item.amount);
+    adjustmentTotals.set(item.employee_id, value);
   }
-  for (const item of adjustmentsRaw ?? []) {
-    const key = `${item.employee_id}|${item.site_id ?? "none"}|Kuu lisasumma|€`;
-    const row = breakdown.get(key) ?? { worker: workerName.get(item.employee_id) ?? "—", site: "Objekt määramata", label: "Kuu lisasumma", unit: "€", hours: 0, quantity: 0, earned: 0 };
-    row.earned += Number(item.amount);
-    breakdown.set(key, row);
-  }
+  const rows = summarizeWorkers(shifts, visibleWorkers).map((row) => ({ ...row, gross: row.gross + (adjustmentTotals.get(row.id)?.gross ?? 0), net: row.net + (adjustmentTotals.get(row.id)?.net ?? 0), hasGross: row.hasGross || (adjustmentTotals.get(row.id)?.gross ?? 0) !== 0, hasNet: row.hasNet || (adjustmentTotals.get(row.id)?.net ?? 0) !== 0 }));
+  const selectedWorker = workerId ? workers.find((worker) => worker.id === workerId) : null;
+  const siteSummary = selectedWorker ? summarizeSites(shifts) : [];
+  const totals = rows.reduce((sum, row) => ({ hours: sum.hours + row.hours, days: sum.days + row.days, gross: sum.gross + row.gross, net: sum.net + row.net }), { hours: 0, days: 0, gross: 0, net: 0 });
+  const currency = selectedWorker?.currency ?? rows[0]?.currency ?? "EUR";
+  const baseQuery = `from=${range.from}&to=${range.to}&preset=custom${siteId ? `&site=${siteId}` : ""}`;
 
-  const period = oneWeek
-    ? `${isCurrent ? "Käesolev nädal" : "Nädal"} ${isoWeek(from)} · ${fmt(fromStr)} – ${fmt(toStr)}`
-    : `${fmt(fromStr)} – ${fmt(toStr)}`;
-
-  return (
-    <div className="page-stack">
-      <PageHeader eyebrow={<T id="reportsPayroll" />} title={<T id="workReport" />} description={period} actions={<ExportButtons from={fromStr} to={toStr} />} />
-
-      {/* week navigation — one click per pay period */}
-      <div className="flex flex-wrap items-center gap-2">
-        <Link href={href(prev)} className="btn-secondary">
-          <T id="previousWeek" />
-        </Link>
-        <Link
-          href={href(thisWeek)}
-          className={`btn ${
-            isCurrent ? "bg-primary text-primary-foreground" : "border border-border-strong bg-surface hover:bg-bg"
-          }`}
-        >
-          <T id="currentWeek" />
-        </Link>
-        <Link href={href(next)} className="btn-secondary">
-          <T id="nextWeek" />
-        </Link>
-        <Link
-          href={href({ from: ymd(startOfWeek(addWeeks(new Date(), -3))), to: thisWeek.to })}
-          className="btn-quiet"
-        >
-          <T id="lastFourWeeks" />
-        </Link>
-      </div>
-
-      {/* summary */}
-      <MetricStrip items={[
-        { label: <T id="hoursInPeriod" />, value: `${hours1(grandTotal)} h`, detail: period },
-        { label: <T id="payroll" />, value: money(grandEarned, currency), detail: <T id="estimatedGross" />, tone: "signal" },
-        { label: <T id="employeesWithTime" />, value: matrix.workers.filter((w) => matrix.totalsByWorker[w.id] > 0).length, detail: `${matrix.workers.length} töötajat kokku` },
-      ]} />
-
-      <form className="panel flex flex-wrap items-end gap-3 p-4">
-        <label className="text-sm">
-          <span className="field-label"><T id="from" /></span>
-          <input type="date" name="from" defaultValue={fromStr} className="control bg-bg" />
-        </label>
-        <label className="text-sm">
-          <span className="field-label"><T id="to" /></span>
-          <input type="date" name="to" defaultValue={toStr} className="control bg-bg" />
-        </label>
-        <button className="btn-primary"><T id="showPeriod" /></button>
-      </form>
-
-      {matrix.workers.length === 0 ? <EmptyState title="Aruandes pole töötajaid" description="Valitud perioodi kohta ei ole kuvamiseks töötajaid ega tööaega." /> : <div className="panel overflow-x-auto">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th className="sticky left-0 bg-surface px-3 py-2 text-left font-medium"><T id="employee" /></th>
-              {matrix.days.map((d) => {
-                const dow = DOW[(parseYmd(d).getUTCDay() + 6) % 7];
-                const weekend = dow === "L" || dow === "P";
-                return (
-                  <th key={d} className={`px-2 py-2 text-center font-medium ${weekend ? "text-alert/70" : ""}`}>
-                    {oneWeek ? <span className="block text-[11px]">{dow}</span> : null}
-                    {d.slice(8)}
-                  </th>
-                );
-              })}
-              <th className="px-3 py-2 text-right font-medium"><T id="total" /></th>
-              <th className="hidden px-3 py-2 text-right font-medium sm:table-cell"><T id="rate" /></th>
-              <th className="px-3 py-2 text-right font-medium"><T id="earned" /></th>
-            </tr>
-          </thead>
-          <tbody>
-            {matrix.workers.map((w) => (
-              <tr key={w.id} className="border-b border-border last:border-0">
-                <td className="sticky left-0 bg-surface px-3 py-2 font-medium">
-                  {me.role === "admin" ? <Link href={`/workers/${w.id}`} className="hover:text-signal">{w.name}</Link> : w.name}
-                  {matrix.flagsByWorker[w.id] > 0 && (
-                    <span className="ml-2"><StatusBadge tone="alert">Väljaspool tsooni · {matrix.flagsByWorker[w.id]}</StatusBadge></span>
-                  )}
-                </td>
-                {matrix.days.map((d) => {
-                  const h = matrix.hours[w.id]?.[d];
-                  return (
-                    <td key={d} className={`px-2 py-2 text-center tabular ${h ? "text-text" : "text-muted"}`}>
-                      {h ? h.toFixed(1) : "·"}
-                    </td>
-                  );
-                })}
-                <td className="px-3 py-2 text-right tabular font-semibold">
-                  {hours1(matrix.totalsByWorker[w.id])}
-                </td>
-                <td className="hidden px-3 py-2 text-right tabular text-muted sm:table-cell">
-                  <div>{w.rate != null ? `${w.rate.toFixed(2)} €/${pricingUnit(w.pricingType, w.unit)}` : "—"}</div>
-                  <div className="text-[10px]">{PRICING_LABELS[w.pricingType]}</div>
-                </td>
-                <td className="px-3 py-2 text-right tabular font-semibold text-signal">
-                  {w.rate != null ? money(matrix.earningsByWorker[w.id], w.currency) : "—"}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr className="border-t border-border">
-              <td className="sticky left-0 bg-surface px-3 py-2 font-semibold">Kokku</td>
-              <td colSpan={matrix.days.length} />
-              <td className="px-3 py-2 text-right tabular font-bold">{hours1(grandTotal)}</td>
-              <td className="hidden sm:table-cell" />
-              <td className="px-3 py-2 text-right tabular font-bold text-signal">{money(grandEarned, currency)}</td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>}
-
-      {/* when the period spans several weeks, show what each pay week owes */}
-      {multiWeek && (
-        <div className="space-y-2">
-          <h2 className="font-display text-xl font-bold">Nädalate kaupa</h2>
-          <div className="panel overflow-x-auto">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th className="sticky left-0 bg-surface px-3 py-2 text-left font-medium">Töötaja</th>
-                  {weekly.weeks.map((wk) => (
-                    <th key={wk.key} className="whitespace-nowrap px-3 py-2 text-right font-medium">
-                      <Link href={href(weekRange(parseYmd(wk.from)))} className="hover:text-signal">
-                        {wk.label}
-                      </Link>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {matrix.workers.map((w) => (
-                  <tr key={w.id} className="border-b border-border last:border-0">
-                    <td className="sticky left-0 bg-surface px-3 py-2 font-medium">{w.name}</td>
-                    {weekly.weeks.map((wk) => {
-                      const secs = weekly.seconds[w.id]?.[wk.key] ?? 0;
-                      return (
-                        <td key={wk.key} className="px-3 py-2 text-right">
-                          <div className={`tabular ${secs ? "font-semibold" : "text-muted"}`}>
-                            {secs ? `${hours1(secs)} h` : "·"}
-                          </div>
-                          {secs > 0 && w.rate != null && (
-                            <div className="tabular text-xs text-signal">
-                              {money(weekly.earnings[w.id]?.[wk.key] ?? 0, w.currency)}
-                            </div>
-                          )}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="border-t border-border">
-                  <td className="sticky left-0 bg-surface px-3 py-2 font-semibold">Nädala palgafond</td>
-                  {weekly.weeks.map((wk) => (
-                    <td key={wk.key} className="px-3 py-2 text-right">
-                      <div className="tabular font-bold">{hours1(weekly.totalsByWeek[wk.key])} h</div>
-                      <div className="tabular text-xs font-semibold text-signal">
-                        {money(weekly.earningsByWeek[wk.key], currency)}
-                      </div>
-                    </td>
-                  ))}
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </div>
-      )}
-
-      <section className="space-y-2">
-        <h2 className="font-display text-xl font-bold">Tasu objekti ja töö liigi kaupa</h2>
-        <div className="panel overflow-x-auto">
-          <table className="data-table">
-            <thead><tr><th className="px-3 py-2 text-left font-medium">Töötaja</th><th className="px-3 py-2 text-left font-medium">Objekt</th><th className="px-3 py-2 text-left font-medium">Töö / ühik</th><th className="px-3 py-2 text-right font-medium">Tunnid</th><th className="px-3 py-2 text-right font-medium">Kogus</th><th className="px-3 py-2 text-right font-medium">Netosumma</th></tr></thead>
-            <tbody>{[...breakdown.values()].map((row, index) => <tr key={`${row.worker}-${row.site}-${row.label}-${index}`} className="border-b border-border last:border-0"><td className="px-3 py-2 font-medium">{row.worker}</td><td className="px-3 py-2">{row.site}</td><td className="px-3 py-2">{row.label} <span className="text-xs text-muted">({row.unit})</span></td><td className="px-3 py-2 text-right tabular">{row.hours ? row.hours.toFixed(2) : "—"}</td><td className="px-3 py-2 text-right tabular">{row.quantity ? row.quantity.toFixed(2) : "—"}</td><td className="px-3 py-2 text-right tabular font-semibold text-signal">{money(row.earned, currency)} neto</td></tr>)}</tbody>
-          </table>
-          {breakdown.size === 0 && <p className="p-4 text-sm text-muted">Valitud perioodil ei ole tasuridu.</p>}
-        </div>
-      </section>
-
-      <p className="text-xs text-muted">
-        Väljaspool tsooni = kordi, mil töö algus märgiti objekti alast eemal. Summad on määratud netosummad (tunnid × hind või tehtud kogus × hind) —
-        ületunde, öötööd ega makse siin ei arvestata.
-      </p>
-    </div>
-  );
+  return <div className="page-stack">
+    <PageHeader eyebrow="Aruandlus" title="Aruanne" description={`${formatDate(range.from)} – ${formatDate(range.to)}`} actions={<ExportButtons from={range.from} to={range.to} workerId={workerId || undefined} siteId={siteId || undefined} />} />
+    <form className="panel grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-[minmax(10rem,0.8fr)_minmax(12rem,1fr)_minmax(12rem,1fr)_auto] lg:items-end">
+      <label><span className="field-label">Periood</span><select name="preset" defaultValue={preset} className="control bg-bg"><option value="current">Käesolev kuu</option><option value="previous">Eelmine kuu</option><option value="custom">Kohandatud periood</option></select></label>
+      <label><span className="field-label">Töötaja</span><select name="worker" defaultValue={workerId} className="control bg-bg"><option value="">Kõik töötajad</option>{workers.map((worker) => <option key={worker.id} value={worker.id}>{worker.first_name} {worker.last_name}</option>)}</select></label>
+      <label><span className="field-label">Objekt</span><select name="site" defaultValue={siteId} className="control bg-bg"><option value="">Kõik objektid</option>{sites.map((site) => <option key={site.id} value={site.id}>{site.name}{site.address ? ` · ${site.address}` : ""}</option>)}</select></label>
+      <button className="btn-primary">Näita</button>
+      <label><span className="field-label">Alates</span><input type="date" name="from" defaultValue={range.from} className="control bg-bg" /></label>
+      <label><span className="field-label">Kuni</span><input type="date" name="to" defaultValue={range.to} className="control bg-bg" /></label>
+    </form>
+    <MetricStrip items={[
+      { label: "Kokku töötunde", value: `${hours1(totals.hours * 3600)} h`, detail: `${totals.days} tööpäeva` },
+      { label: "Bruto", value: rows.some((row) => row.hasGross) ? money(totals.gross, currency) : "—", detail: rows.some((row) => row.hasGross) ? "Salvestatud brutoandmed" : "Brutoandmed puuduvad" },
+      { label: "Neto", value: rows.some((row) => row.hasNet) ? money(totals.net, currency) : "—", detail: rows.some((row) => row.hasNet) ? "Salvestatud netohinnad" : "Netoandmed puuduvad", tone: "signal" },
+      { label: workerId ? "Tööpäevi" : "Töötajaid", value: workerId ? totals.days : rows.filter((row) => row.hours || row.gross || row.net).length, detail: workerId && selectedWorker ? `${selectedWorker.first_name} ${selectedWorker.last_name}` : `${rows.length} aruandes` },
+    ]} />
+    {!selectedWorker ? <GeneralReport rows={rows} baseQuery={baseQuery} /> : <PersonalReport worker={selectedWorker} shifts={shifts} adjustments={adjustments ?? []} siteSummary={siteSummary} currency={currency} />}
+    <p className="text-xs text-muted">Bruto ja neto kuvatakse ainult siis, kui vastav liik on andmetes salvestatud. WorkTime ei arvuta makse ega teisenda bruto- ja netosummasid omavahel.</p>
+  </div>;
 }
 
-function fmt(ymdStr: string): string {
-  const [y, m, d] = ymdStr.split("-");
-  return `${d}.${m}.${y}`;
+type SummaryRow = ReturnType<typeof summarizeWorkers>[number];
+function GeneralReport({ rows, baseQuery }: { rows: SummaryRow[]; baseQuery: string }) {
+  if (!rows.length) return <EmptyState title="Aruandes pole töötajaid" description="Valitud filtritega ei leitud töötajaid." />;
+  return <section className="space-y-2"><h2 className="section-title">Töötajate aruanne</h2><div className="space-y-2 sm:hidden">{rows.map((row) => <div key={row.id} className="panel p-4"><div className="flex items-start justify-between gap-3"><div><div className="font-medium">{row.name}</div><div className="text-xs text-muted">{row.workTypes.join(" · ") || "Tööd puuduvad"}</div></div><div className="text-right"><div className="tabular font-semibold">{row.hours.toFixed(2)} h</div><div className="text-xs text-muted">{row.days} päeva · {row.sites} objekti</div></div></div><div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-sm"><span>{row.quantities.join(" · ") || "Kogus —"}</span>{row.hasGross && <span>Bruto {money(row.gross, row.currency)}</span>}{row.hasNet && <span className="font-semibold text-signal">Neto {money(row.net, row.currency)}</span>}</div><Link href={`/reports?${baseQuery}&worker=${row.id}`} className="btn-secondary mt-3 w-full">Ava aruanne</Link></div>)}</div><div className="panel hidden overflow-x-auto sm:block"><table className="data-table"><thead><tr><th className="px-3 py-2 text-left">Töötaja</th><th className="px-3 py-2 text-right">Päevi</th><th className="px-3 py-2 text-right">Tunnid</th><th className="px-3 py-2 text-left">Töö kogus</th><th className="px-3 py-2 text-right">Objektid</th><th className="px-3 py-2 text-right">Bruto</th><th className="px-3 py-2 text-right">Neto</th><th className="px-3 py-2" /></tr></thead><tbody>{rows.map((row) => <tr key={row.id} className="border-b border-border last:border-0"><td className="px-3 py-3 font-medium">{row.name}<div className="text-xs font-normal text-muted">{row.workTypes.join(" · ") || "Tööd puuduvad"}</div></td><td className="px-3 py-3 text-right tabular">{row.days}</td><td className="px-3 py-3 text-right tabular">{row.hours.toFixed(2)}</td><td className="px-3 py-3 text-sm">{row.quantities.join(" · ") || "—"}</td><td className="px-3 py-3 text-right tabular">{row.sites}</td><td className="px-3 py-3 text-right tabular">{row.hasGross ? money(row.gross, row.currency) : "—"}</td><td className="px-3 py-3 text-right tabular font-semibold text-signal">{row.hasNet ? money(row.net, row.currency) : "—"}</td><td className="px-3 py-3 text-right"><Link href={`/reports?${baseQuery}&worker=${row.id}`} className="btn-quiet whitespace-nowrap">Ava aruanne</Link></td></tr>)}</tbody></table></div></section>;
 }
+
+function PersonalReport({ worker, shifts, adjustments, siteSummary, currency }: { worker: { id: string; first_name: string; last_name: string }; shifts: ReportShift[]; adjustments: Array<{ id: string; site_id: string | null; period_month: string; amount: number; currency: string; is_net: boolean; note: string }>; siteSummary: ReturnType<typeof summarizeSites>; currency: string }) {
+  const siteMap = new Map(siteSummary.map((site) => [site.id, site]));
+  return <div className="space-y-6"><section className="space-y-2"><h2 className="section-title">{worker.first_name} {worker.last_name}</h2><div className="panel overflow-x-auto"><table className="data-table"><thead><tr><th className="px-3 py-2 text-left">Kuupäev</th><th className="px-3 py-2 text-left">Objekt</th><th className="px-3 py-2 text-left">Töö liik</th><th className="px-3 py-2 text-right">Kogus</th><th className="px-3 py-2 text-right">Hind</th><th className="px-3 py-2 text-right">Töötunnid</th><th className="px-3 py-2 text-right">Summa</th></tr></thead><tbody>{shifts.map((shift) => <tr key={shift.id} className="border-b border-border last:border-0"><td className="whitespace-nowrap px-3 py-3">{formatDate(shift.work_date)}</td><td className="px-3 py-3"><div className="font-medium">{shift.site_name ?? "Objekt määramata"}</div>{shift.site_address && <div className="text-xs text-muted">{shift.site_address}</div>}</td><td className="px-3 py-3">{shift.pricing_label ?? PRICING_LABELS[shift.pricing_type]}</td><td className="px-3 py-3 text-right tabular">{shift.pricing_type === "hourly" ? `${((shift.worked_seconds ?? 0) / 3600).toFixed(2)} h` : shift.quantity != null ? `${formatQuantity(shift.quantity)} ${shift.unit ?? pricingUnit(shift.pricing_type)}` : "—"}</td><td className="px-3 py-3 text-right tabular">{shift.pricing_rate != null ? `${Number(shift.pricing_rate).toFixed(2)} €/${pricingUnit(shift.pricing_type, shift.unit)}` : "—"}</td><td className="px-3 py-3 text-right tabular">{((shift.worked_seconds ?? 0) / 3600).toFixed(2)} h</td><td className="px-3 py-3 text-right tabular font-semibold">{money(shiftTotal(shift), currency)} {shift.is_net === false ? "bruto" : "neto"}</td></tr>)}{adjustments.map((item) => { const site = item.site_id ? siteMap.get(item.site_id) : null; return <tr key={item.id} className="border-b border-border last:border-0"><td className="px-3 py-3">{item.period_month.slice(0, 7)}</td><td className="px-3 py-3">{site?.name ?? "—"}</td><td className="px-3 py-3">Kuu lisasumma · {item.note}</td><td className="px-3 py-3 text-right">—</td><td className="px-3 py-3 text-right">—</td><td className="px-3 py-3 text-right">—</td><td className="px-3 py-3 text-right tabular font-semibold">{money(item.amount, item.currency)} {item.is_net === false ? "bruto" : "neto"}</td></tr>; })}</tbody></table>{!shifts.length && !adjustments.length && <p className="p-4 text-sm text-muted">Valitud perioodil pole töö- ega tasuridu.</p>}</div></section><section className="space-y-2"><h2 className="section-title">Objektide kokkuvõte</h2><div className="grid gap-3 md:grid-cols-2">{siteSummary.map((site) => <div key={site.id} className="panel p-4"><div className="font-medium">{site.name}</div>{site.address && <div className="text-sm text-muted">{site.address}</div>}<div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm"><span><b className="tabular">{site.hours.toFixed(2)}</b> h</span>{site.quantityLabels.map((label) => <span key={label}><b>{label}</b></span>)}<span className="ml-auto font-semibold text-signal">{money(site.amount, currency)} {site.isNet ? "neto" : "bruto"}</span></div></div>)}{!siteSummary.length && <EmptyState title="Objektide andmed puuduvad" description="Valitud perioodil ei ole objekti külge seotud vahetusi." />}</div></section></div>;
+}
+
+function monthRange(date: Date) { const year = date.getUTCFullYear(); const month = date.getUTCMonth(); return { from: ymd(new Date(Date.UTC(year, month, 1))), to: ymd(new Date(Date.UTC(year, month + 1, 0))) }; }
+function validDate(value?: string): value is string { return Boolean(value && /^\d{4}-\d{2}-\d{2}$/.test(value)); }
+function formatDate(value: string) { const [year, month, day] = value.split("-"); return `${day}.${month}.${year}`; }

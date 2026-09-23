@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 import type { Site } from "@/lib/types";
@@ -11,7 +11,7 @@ import { AddressAutocomplete } from "./AddressAutocomplete";
 const empty = { name: "", address: "", description: "", status: "active" as Site["status"], lat: "", lng: "", radius_m: "150" };
 
 // Admin RLS permits sites writes within the company, so this writes directly.
-export function SiteEditor({ sites, assignmentCounts }: { sites: Site[]; assignmentCounts: Record<string, number> }) {
+export function SiteEditor({ sites, assignmentCounts, initialEditId }: { sites: Site[]; assignmentCounts: Record<string, number>; initialEditId?: string }) {
   const supabase = supabaseBrowser();
   const router = useRouter();
   const toast = useToast();
@@ -117,6 +117,13 @@ export function SiteEditor({ sites, assignmentCounts }: { sites: Site[]; assignm
     });
   }
 
+  useEffect(() => {
+    const requested = sites.find((site) => site.id === initialEditId);
+    if (requested) edit(requested);
+    // The deep link is only an initial selection; later edits are local UI state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialEditId]);
+
   const input = "control bg-bg";
 
   return (
@@ -128,7 +135,7 @@ export function SiteEditor({ sites, assignmentCounts }: { sites: Site[]; assignm
           value={form.address}
           onChange={(address) => {
             setLocateErr(null);
-            setForm((current) => ({ ...current, address, lat: "", lng: "" }));
+            setForm((current) => ({ ...current, address }));
           }}
           onSelect={(suggestion) => {
             setLocateErr(null);
@@ -140,6 +147,7 @@ export function SiteEditor({ sites, assignmentCounts }: { sites: Site[]; assignm
             }));
           }}
         />
+        <p className="text-xs text-muted">Aadressi võib sisestada käsitsi. Koordinaatide uuendamiseks vali soovitus või vajuta „Leia koordinaadid“.</p>
         <label className="block"><span className="field-label">Kirjeldus <span className="font-normal text-muted">(valikuline)</span></span><textarea className={`${input} min-h-24 resize-y`} placeholder="Ligipääs, kontakt või muu oluline info" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></label>
         <label className="block"><span className="field-label">Staatus</span><select className={input} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as Site["status"] })}>
           <option value="active">Aktiivne</option>

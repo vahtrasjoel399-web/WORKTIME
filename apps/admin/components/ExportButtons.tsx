@@ -2,20 +2,21 @@
 
 // Triggers the server export route with the current period; the browser downloads
 // the file. Two formats: CSV (universal) and XLSX (for payroll spreadsheets).
-export function ExportButtons({ from, to }: { from: string; to: string }) {
+export function ExportButtons({ from, to, workerId, siteId }: { from: string; to: string; workerId?: string; siteId?: string }) {
+  const filters = `${workerId ? `&worker=${encodeURIComponent(workerId)}` : ""}${siteId ? `&site=${encodeURIComponent(siteId)}` : ""}`;
   return (
-    <div className="flex gap-2">
+    <div className="flex flex-wrap gap-2">
       <a
-        href={`/api/export?format=csv&from=${from}&to=${to}`}
+        href={`/api/export?format=csv&from=${from}&to=${to}${filters}`}
         className="btn-secondary"
       >
-        Ekspordi CSV
+        {workerId ? "Ekspordi töötaja CSV" : "Ekspordi kõik CSV"}
       </a>
       <a
-        href={`/api/export?format=xlsx&from=${from}&to=${to}`}
+        href={`/api/export?format=xlsx&from=${from}&to=${to}${filters}`}
         className="btn-primary"
       >
-        Ekspordi XLSX
+        {workerId ? "Ekspordi töötaja XLSX" : "Ekspordi kõik XLSX"}
       </a>
     </div>
   );
