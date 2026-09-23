@@ -7,7 +7,7 @@ import { hours1, money } from "@/lib/format";
 import { addWeeks, isFullWeek, isoWeek, parseYmd, startOfWeek, weekRange, ymd } from "@/lib/week";
 import type { ShiftReport } from "@/lib/types";
 import { ExportButtons } from "@/components/ExportButtons";
-import { pricingUnit, PRICING_LABELS } from "@/lib/pricing";
+import { pricingUnit, PRICING_LABELS, shiftTotal } from "@/lib/pricing";
 import { EmptyState, MetricStrip, PageHeader, StatusBadge } from "@/components/ui";
 import { T } from "@/components/T";
 
@@ -39,12 +39,19 @@ export default async function ReportsPage({
     db.from("profiles").select("id, first_name, last_name, hourly_rate, self_hourly_rate, pricing_type, pricing_unit, currency").eq("company_id", me.company_id).eq("role", "worker").order("last_name"),
     db
       .from("v_shift_report")
-      .select("id, user_id, worked_seconds, pricing_type, pricing_rate, quantity, calculated_total, work_date, out_of_zone")
+      .select("id, user_id, site_id, site_name, worked_seconds, pricing_type, pricing_rate, quantity, unit, calculated_total, pricing_label, is_net, work_date, out_of_zone, started_at")
       .eq("company_id", me.company_id)
       .eq("status", "closed")
       .gte("started_at", from.toISOString())
       .lt("started_at", to.toISOString()),
   ]);
+
+  const { data: adjustmentsRaw } = await db
+    .from("monthly_adjustments")
+    .select("employee_id, site_id, amount, currency, note, period_month")
+    .eq("company_id", me.company_id)
+    .gte("period_month", fromStr.slice(0, 7) + "-01")
+    .lte("period_month", toStr.slice(0, 7) + "-01");
 
   const workerRows = (workers ?? []) as WorkerRow[];
   const matrix = buildMatrix((shiftsRaw ?? []) as ShiftReport[], workerRows, from, to);
@@ -60,6 +67,24 @@ export default async function ReportsPage({
   const next = weekRange(addWeeks(from, 1));
   const href = (r: { from: string; to: string }) => `/reports?from=${r.from}&to=${r.to}`;
   const isCurrent = fromStr === thisWeek.from && toStr === thisWeek.to;
+  const workerName = new Map(workerRows.map((worker) => [worker.id, `${worker.first_name} ${worker.last_name}`]));
+  const breakdown = new Map<string, { worker: string; site: string; label: string; unit: string; hours: number; quantity: number; earned: number }>();
+  for (const shift of (shiftsRaw ?? []) as ShiftReport[]) {
+    const label = shift.pricing_label ?? PRICING_LABELS[shift.pricing_type ?? "hourly"];
+    const unit = shift.pricing_type === "hourly" ? "h" : shift.unit ?? (shift.pricing_type === "area" ? "m²" : "ühik");
+    const key = `${shift.user_id}|${shift.site_id ?? "none"}|${label}|${unit}`;
+    const row = breakdown.get(key) ?? { worker: workerName.get(shift.user_id) ?? "—", site: shift.site_name ?? "Objekt määramata", label, unit, hours: 0, quantity: 0, earned: 0 };
+    row.hours += (shift.worked_seconds ?? 0) / 3600;
+    row.quantity += shift.pricing_type === "hourly" ? 0 : shift.quantity ?? 0;
+    row.earned += shiftTotal(shift, null);
+    breakdown.set(key, row);
+  }
+  for (const item of adjustmentsRaw ?? []) {
+    const key = `${item.employee_id}|${item.site_id ?? "none"}|Kuu lisasumma|€`;
+    const row = breakdown.get(key) ?? { worker: workerName.get(item.employee_id) ?? "—", site: "Objekt määramata", label: "Kuu lisasumma", unit: "€", hours: 0, quantity: 0, earned: 0 };
+    row.earned += Number(item.amount);
+    breakdown.set(key, row);
+  }
 
   const period = oneWeek
     ? `${isCurrent ? "Käesolev nädal" : "Nädal"} ${isoWeek(from)} · ${fmt(fromStr)} – ${fmt(toStr)}`
@@ -232,8 +257,19 @@ export default async function ReportsPage({
         </div>
       )}
 
+      <section className="space-y-2">
+        <h2 className="font-display text-xl font-bold">Tasu objekti ja töö liigi kaupa</h2>
+        <div className="panel overflow-x-auto">
+          <table className="data-table">
+            <thead><tr><th className="px-3 py-2 text-left font-medium">Töötaja</th><th className="px-3 py-2 text-left font-medium">Objekt</th><th className="px-3 py-2 text-left font-medium">Töö / ühik</th><th className="px-3 py-2 text-right font-medium">Tunnid</th><th className="px-3 py-2 text-right font-medium">Kogus</th><th className="px-3 py-2 text-right font-medium">Netosumma</th></tr></thead>
+            <tbody>{[...breakdown.values()].map((row, index) => <tr key={`${row.worker}-${row.site}-${row.label}-${index}`} className="border-b border-border last:border-0"><td className="px-3 py-2 font-medium">{row.worker}</td><td className="px-3 py-2">{row.site}</td><td className="px-3 py-2">{row.label} <span className="text-xs text-muted">({row.unit})</span></td><td className="px-3 py-2 text-right tabular">{row.hours ? row.hours.toFixed(2) : "—"}</td><td className="px-3 py-2 text-right tabular">{row.quantity ? row.quantity.toFixed(2) : "—"}</td><td className="px-3 py-2 text-right tabular font-semibold text-signal">{money(row.earned, currency)} neto</td></tr>)}</tbody>
+          </table>
+          {breakdown.size === 0 && <p className="p-4 text-sm text-muted">Valitud perioodil ei ole tasuridu.</p>}
+        </div>
+      </section>
+
       <p className="text-xs text-muted">
-        Väljaspool tsooni = kordi, mil töö algus märgiti objekti alast eemal. Summad on bruto ja orienteeruvad (tunnid × hind või tehtud kogus × hind) —
+        Väljaspool tsooni = kordi, mil töö algus märgiti objekti alast eemal. Summad on määratud netosummad (tunnid × hind või tehtud kogus × hind) —
         ületunde, öötööd ega makse siin ei arvestata.
       </p>
     </div>

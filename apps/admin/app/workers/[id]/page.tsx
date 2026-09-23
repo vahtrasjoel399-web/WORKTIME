@@ -15,6 +15,8 @@ import { pricingUnit, PRICING_LABELS, shiftTotal } from "@/lib/pricing";
 import type { EmployeeAssignment, EmployeeDocument, Profile, ShiftReport, Site } from "@/lib/types";
 import { Icon } from "@/components/Icon";
 import { StatusBadge } from "@/components/ui";
+import { WorkerCompensation } from "@/components/WorkerCompensation";
+import type { MonthlyAdjustment, WorkerRate } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +43,8 @@ export default async function WorkerCard({
     { data: sitesRaw },
     { data: assignmentsRaw },
     { data: documentsRaw },
+    { data: ratesRaw },
+    { data: adjustmentsRaw },
   ] = await Promise.all([
     supabase.from("profiles").select("*").eq("id", id).eq("role", "worker").single(),
     supabase.from("sites").select("*"),
@@ -54,12 +58,16 @@ export default async function WorkerCard({
       .select("*")
       .eq("employee_id", id)
       .order("created_at", { ascending: false }),
+    supabase.from("worker_rates").select("*").eq("employee_id", id).order("is_active", { ascending: false }).order("created_at"),
+    supabase.from("monthly_adjustments").select("*").eq("employee_id", id).order("period_month", { ascending: false }),
   ]);
   if (!workerRaw) notFound();
   const worker = workerRaw as Profile;
   const sites = (sitesRaw ?? []) as Site[];
   const assignments = (assignmentsRaw ?? []) as EmployeeAssignment[];
   const documents = (documentsRaw ?? []) as EmployeeDocument[];
+  const rates = (ratesRaw ?? []) as WorkerRate[];
+  const adjustments = (adjustmentsRaw ?? []) as MonthlyAdjustment[];
 
   const filePaths = [
     ...(worker.profile_photo_path ? [worker.profile_photo_path] : []),
@@ -347,7 +355,8 @@ export default async function WorkerCard({
           </section>
 
           <EmployeeDocuments worker={worker} actorId={me.id} documents={documentsWithUrls} />
-          <WorkerAdmin worker={worker} />
+              <WorkerCompensation employeeId={worker.id} companyId={worker.company_id} currency={worker.currency} sites={sites} rates={rates} adjustments={adjustments} />
+              <WorkerAdmin worker={worker} />
         </div>
       </div>
     </div>

@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabaseBrowser } from "@/lib/supabase-browser";
 import type { EmployeeAssignment, Site } from "@/lib/types";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { useToast } from "./ToastProvider";
@@ -26,15 +25,19 @@ export function EmployeeAssignmentManager({
 
   async function updateAssignment(nextSiteId: string | null) {
     setBusy(true);
-    const { error } = await supabaseBrowser().rpc("set_employee_assignment", {
-      p_employee_id: employeeId,
-      p_site_id: nextSiteId,
-    });
+    let response: Response;
+    try {
+      response = await fetch(`/api/workers/${employeeId}/assignment`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ site_id: nextSiteId }) });
+    } catch {
+      setBusy(false);
+      return toast("Serveriga ei saadud ühendust.", "error");
+    }
     setBusy(false);
     setConfirmRemove(false);
-    if (error) return toast(error.message || "Objekti määramine ebaõnnestus.", "error");
+    if (!response.ok) return toast((await response.text()) || "Objekti määramine ebaõnnestus.", "error");
+    const result = await response.json() as { notification?: string; message?: string };
     setSiteId(nextSiteId ?? "");
-    toast(nextSiteId ? (currentAssignment ? "Töötaja viidi uuele objektile." : "Töötaja määrati objektile.") : "Töötaja eemaldati objektilt.");
+    toast(nextSiteId ? `${currentAssignment ? "Töötaja viidi uuele objektile." : "Töötaja määrati objektile."}${result.notification === "sent" ? " Teavitus saadeti e-postile." : result.notification === "failed" ? " E-posti teavitus ebaõnnestus." : ""}` : "Töötaja eemaldati objektilt.", result.notification === "failed" ? "error" : "success");
     router.refresh();
   }
 

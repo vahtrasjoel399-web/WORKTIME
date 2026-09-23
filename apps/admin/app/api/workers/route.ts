@@ -4,6 +4,8 @@ import { emailSuggestion, isValidEmail, normalizeEmail } from "@/lib/email";
 import { buildManagedProfile } from "@/lib/managed-profile";
 import type { PricingType } from "@/lib/pricing";
 import { sendInvitationEmail } from "@/lib/invitation-email";
+import { sendAssignmentEmail } from "@/lib/assignment-email";
+import type { WorkerRate } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -183,6 +185,31 @@ export async function POST(req: NextRequest) {
   }
   if (invitationAuditError) {
     console.error("Invitation audit write failed", { companyId: me.company_id, employeeId: created.user.id, code: invitationAuditError.code });
+  }
+
+  if (accountRole === "worker" && initialSiteId) {
+    const [{ data: site }, { data: rates }] = await Promise.all([
+      service.from("sites").select("name, address").eq("id", initialSiteId).single(),
+      service.from("worker_rates").select("*").eq("employee_id", created.user.id).eq("is_active", true),
+    ]);
+    if (site) {
+      const assignmentNotice = await sendAssignmentEmail({
+        email: cleanEmail,
+        firstName: cleanFirst,
+        siteName: site.name,
+        siteAddress: site.address,
+        rates: (rates ?? []) as WorkerRate[],
+        idempotencyKey: `assignment/${initialAssignmentId}`,
+      });
+      await service.from("audit_logs").insert({
+        company_id: me.company_id,
+        actor_id: user.id,
+        action: assignmentNotice.ok ? "employee.assignment_email_sent" : "employee.assignment_email_failed",
+        target_type: "employee_assignment",
+        target_id: initialAssignmentId,
+        metadata: assignmentNotice.ok ? { provider: "resend", message_id: assignmentNotice.messageId } : { provider: "resend", error_code: assignmentNotice.code },
+      });
+    }
   }
 
   return NextResponse.json({

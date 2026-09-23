@@ -7,7 +7,7 @@ import { useI18n, LangSwitcher } from "./I18nProvider";
 import { resolveEarnings } from "@/lib/report";
 import { money, hours1 } from "@/lib/format";
 import { isoWeek, weekDates, weekKey } from "@/lib/week";
-import type { Profile } from "@/lib/types";
+import type { MonthlyAdjustment, Profile, Site, WorkerRate } from "@/lib/types";
 import { calculatePricingTotal, pricingUnit, PRICING_LABELS, shiftTotal } from "@/lib/pricing";
 import { Icon } from "./Icon";
 
@@ -23,6 +23,11 @@ interface Shift {
   quantity: number | null;
   unit: string | null;
   calculated_total: number | null;
+  worker_rate_id?: string | null;
+  pricing_label?: string | null;
+  is_net?: boolean;
+  site_id?: string | null;
+  site_name?: string | null;
 }
 
 function hms(total: number): string {
@@ -51,6 +56,9 @@ export function WorkerHome({
   shifts,
   approved,
   hasConsent,
+  rates,
+  sites,
+  adjustments,
 }: {
   profile: Profile;
   openShift: Shift | null;
@@ -58,6 +66,9 @@ export function WorkerHome({
   shifts: Shift[];
   approved: boolean;
   hasConsent: boolean;
+  rates: WorkerRate[];
+  sites: Site[];
+  adjustments: MonthlyAdjustment[];
 }) {
   const supabase = supabaseBrowser();
   const router = useRouter();
@@ -74,6 +85,8 @@ export function WorkerHome({
   const [showEarn, setShowEarn] = useState(profile.show_earnings ?? true);
   const [collectingQuantity, setCollectingQuantity] = useState(false);
   const [completedQuantity, setCompletedQuantity] = useState("");
+  const availableRates = rates.filter((item) => item.is_active && (!item.site_id || item.site_id === profile.default_site_id));
+  const [selectedRateId, setSelectedRateId] = useState(availableRates[0]?.id ?? "");
   const breakAccum = useRef(openShift?.break_seconds ?? 0);
   const breakStart = useRef<number | null>(null);
 
@@ -118,9 +131,10 @@ export function WorkerHome({
   const rateRes = resolveEarnings(seconds, profile.hourly_rate, profile.self_hourly_rate);
   const pricingType = profile.pricing_type ?? "hourly";
   const configuredRate = pricingType === "hourly" ? rateRes.rate : profile.hourly_rate;
-  const activePricingType = shift?.pricing_type ?? pricingType;
-  const activeRate = shift?.pricing_rate ?? configuredRate;
-  const activeUnit = shift?.unit ?? profile.pricing_unit;
+  const selectedRate = availableRates.find((item) => item.id === selectedRateId) ?? null;
+  const activePricingType = shift?.pricing_type ?? selectedRate?.pricing_type ?? pricingType;
+  const activeRate = shift?.pricing_rate ?? selectedRate?.rate ?? configuredRate;
+  const activeUnit = shift?.unit ?? selectedRate?.unit ?? profile.pricing_unit;
   const now = new Date();
   const thisWeekKey = weekKey(now);
   const thisMonth = now.getUTCFullYear() * 12 + now.getUTCMonth();
@@ -161,8 +175,13 @@ export function WorkerHome({
       const { data, error } = await supabase
         .from("shifts")
         .insert({ user_id: profile.id, company_id: profile.company_id, started_at: new Date().toISOString(),
-          start_lat: f.lat, start_lng: f.lng, start_accuracy_m: f.acc, start_address: f.address, break_seconds: 0, status: "open", source: "app",
-          pricing_type: pricingType, pricing_rate: configuredRate, unit: profile.pricing_unit })
+          site_id: profile.default_site_id, start_lat: f.lat, start_lng: f.lng, start_accuracy_m: f.acc, start_address: f.address, break_seconds: 0, status: "open", source: "app",
+          worker_rate_id: selectedRate?.id ?? null,
+          pricing_type: selectedRate?.pricing_type ?? pricingType,
+          pricing_rate: selectedRate?.rate ?? configuredRate,
+          unit: selectedRate?.unit ?? profile.pricing_unit,
+          pricing_label: selectedRate?.label ?? null,
+          is_net: selectedRate?.is_net ?? true })
         .select("*").single();
       if (error) throw error;
       breakAccum.current = 0; breakStart.current = null;
@@ -275,9 +294,12 @@ export function WorkerHome({
           {/* actions */}
           <div className="flex flex-col items-center gap-3">
             {!active ? (
-              <button onClick={start} disabled={busy} className="h-28 w-28 rounded-full bg-primary px-2 text-center text-base font-semibold leading-tight text-primary-foreground transition-colors hover:bg-primary-hover disabled:opacity-60">
-                {busy ? "…" : t("startShift")}
-              </button>
+              <>
+                {availableRates.length > 0 && <label className="w-full max-w-xs text-left"><span className="field-label">Töö ja netohind</span><select className="control bg-surface" value={selectedRateId} onChange={(e) => setSelectedRateId(e.target.value)}>{availableRates.map((item) => <option key={item.id} value={item.id}>{item.label} · {money(item.rate, item.currency)}/{pricingUnit(item.pricing_type, item.unit)}</option>)}</select></label>}
+                <button onClick={start} disabled={busy} className="h-28 w-28 rounded-full bg-primary px-2 text-center text-base font-semibold leading-tight text-primary-foreground transition-colors hover:bg-primary-hover disabled:opacity-60">
+                  {busy ? "…" : t("startShift")}
+                </button>
+              </>
             ) : (
               <>
                 <button onClick={() => activePricingType === "hourly" ? void finish() : setCollectingQuantity(true)} disabled={busy} className="h-28 w-28 rounded-full bg-signal px-2 text-center text-base font-semibold leading-tight text-[#0B1320] disabled:opacity-60">
@@ -318,6 +340,7 @@ export function WorkerHome({
                 ))}
               </div>
             )}
+            {adjustments.length > 0 && <div className="mt-3 border-t border-border pt-3 text-left text-sm">{adjustments.map((item) => <div key={item.id} className="flex justify-between gap-3"><span className="truncate text-muted">{item.note}</span><b className="tabular shrink-0">{money(item.amount, item.currency)} neto</b></div>)}</div>}
           </div>
 
           {byWeek.length === 0 ? (
@@ -346,11 +369,11 @@ export function WorkerHome({
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <div className="font-medium">{fmtDate(s.started_at)}</div>
-                            <div className="mt-0.5 break-words text-xs text-muted">{PRICING_LABELS[s.pricing_type ?? "hourly"]}{(s.pricing_type ?? "hourly") !== "hourly" && s.quantity != null ? ` · ${s.quantity} ${s.unit}` : ""}</div>
+                            <div className="mt-0.5 break-words text-xs text-muted">{s.site_name ?? sites.find((site) => site.id === s.site_id)?.name ?? "Objekt määramata"} · {s.pricing_label ?? PRICING_LABELS[s.pricing_type ?? "hourly"]}{(s.pricing_type ?? "hourly") !== "hourly" && s.quantity != null ? ` · ${s.quantity} ${s.unit}` : ""}</div>
                           </div>
                           <div className="shrink-0 text-right">
                             <div className="tabular font-semibold">{hours1(worked)} {t("hoursUnit")}</div>
-                            {showEarn && shiftTotal(s, rateRes.rate) > 0 && <div className="tabular text-sm font-semibold text-signal">{money(shiftTotal(s, rateRes.rate), profile.currency)}</div>}
+                            {showEarn && shiftTotal(s, rateRes.rate) > 0 && <div className="tabular text-sm font-semibold text-signal">{money(shiftTotal(s, rateRes.rate), profile.currency)} neto</div>}
                           </div>
                         </div>
                         <div className="tabular mt-0.5 text-sm text-muted">

@@ -33,8 +33,40 @@ export interface Site {
   lat: number | null;
   lng: number | null;
   radius_m: number;
+  country_code?: string | null;
+  currency?: string;
+  timezone?: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface WorkerRate {
+  id: string;
+  company_id: string;
+  employee_id: string;
+  site_id: string | null;
+  label: string;
+  pricing_type: "hourly" | "area" | "quantity";
+  unit: string | null;
+  rate: number;
+  currency: string;
+  is_net: boolean;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MonthlyAdjustment {
+  id: string;
+  company_id: string;
+  employee_id: string;
+  site_id: string | null;
+  period_month: string;
+  amount: number;
+  currency: string;
+  is_net: boolean;
+  note: string;
+  created_at: string;
 }
 
 export interface EmployeeAssignment {
@@ -79,6 +111,9 @@ export interface ShiftReport {
   quantity: number | null;
   unit: string | null;
   calculated_total: number | null;
+  worker_rate_id?: string | null;
+  pricing_label?: string | null;
+  is_net?: boolean;
   work_date: string;
   status: "open" | "closed";
   source: "app" | "manual";

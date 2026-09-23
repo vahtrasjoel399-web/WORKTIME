@@ -18,11 +18,12 @@ export default async function MePage() {
   // week they were paid for, plus the running one. That window also covers the
   // whole current month, which the screen still shows as context.
   const from = startOfWeek(addWeeks(new Date(), -7)).toISOString();
+  const monthStart = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1)).toISOString().slice(0, 10);
 
-  const [{ data: open }, { data: recent }, { count: consentCount }] = await Promise.all([
+  const [{ data: open }, { data: recent }, { count: consentCount }, { data: rates }, { data: sites }, { data: adjustments }] = await Promise.all([
     supabase.from("shifts").select("*").eq("user_id", profile.id).eq("status", "open").maybeSingle(),
     supabase
-      .from("shifts")
+      .from("v_shift_report")
       .select("*")
       .eq("user_id", profile.id)
       .eq("status", "closed")
@@ -35,6 +36,9 @@ export default async function MePage() {
       .eq("kind", "geolocation_notice")
       .eq("version", "2")
       .eq("granted", true),
+    supabase.from("worker_rates").select("*").eq("employee_id", profile.id).eq("is_active", true).order("created_at"),
+    supabase.from("sites").select("*").eq("company_id", profile.company_id),
+    supabase.from("monthly_adjustments").select("*").eq("employee_id", profile.id).eq("period_month", monthStart).order("created_at"),
   ]);
 
   return (
@@ -44,6 +48,9 @@ export default async function MePage() {
       shifts={(recent ?? []) as unknown as ShiftReport[]}
       approved={profile.is_approved !== false}
       hasConsent={(consentCount ?? 0) > 0}
+      rates={rates ?? []}
+      sites={sites ?? []}
+      adjustments={adjustments ?? []}
     />
   );
 }
