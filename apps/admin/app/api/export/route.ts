@@ -172,9 +172,39 @@ export async function GET(req: NextRequest) {
 
   if (format === "xlsx") {
     const workbook = new ExcelJS.Workbook();
-    workbook.addWorksheet("Detailne aruanne").addRows([detailHeader, ...detailRows]);
-    workbook.addWorksheet("Nädalad").addRows([weekHeader, ...weekRows, weekTotals]);
-    workbook.addWorksheet("Päevad").addRows([header, ...rows]);
+    workbook.creator = "WorkTime";
+    workbook.created = new Date();
+
+    const addReportSheet = (name: string, data: unknown[][]) => {
+      const sheet = workbook.addWorksheet(name, {
+        views: [{ state: "frozen", ySplit: 1 }],
+      });
+      sheet.addRows(data);
+      sheet.autoFilter = {
+        from: { row: 1, column: 1 },
+        to: { row: 1, column: data[0]?.length ?? 1 },
+      };
+      sheet.getRow(1).eachCell((cell) => {
+        cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF155E75" } };
+        cell.alignment = { vertical: "middle" };
+      });
+      sheet.getRow(1).height = 24;
+      sheet.columns.forEach((column) => {
+        let width = 12;
+        column.eachCell?.({ includeEmpty: true }, (cell) => {
+          width = Math.max(width, String(cell.value ?? "").length + 2);
+        });
+        column.width = Math.min(width, 36);
+      });
+      return sheet;
+    };
+
+    const detailSheet = addReportSheet("Detailne aruanne", [detailHeader, ...detailRows]);
+    addReportSheet("Nädalad", [weekHeader, ...weekRows, weekTotals]);
+    addReportSheet("Päevad", [header, ...rows]);
+    detailSheet.getColumn(10).numFmt = '#,##0.00 "€"';
+    detailSheet.getColumn(11).numFmt = '#,##0.00 "€"';
     const buffer = await workbook.xlsx.writeBuffer();
     return new NextResponse(new Uint8Array(buffer), {
       headers: {

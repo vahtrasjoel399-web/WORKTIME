@@ -16,7 +16,7 @@ export function ExportButtons({ from, to, workerId, siteId }: { from: string; to
         href={`/api/export?format=xlsx&from=${from}&to=${to}${filters}`}
         className="btn-primary"
       >
-        {workerId ? "Ekspordi töötaja XLSX" : "Ekspordi kõik XLSX"}
+        {workerId ? "Ekspordi töötaja Excelisse (.xlsx)" : "Ekspordi kõik Excelisse (.xlsx)"}
       </a>
     </div>
   );
