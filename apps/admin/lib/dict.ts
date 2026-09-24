@@ -123,6 +123,8 @@ export const dict: Dict = {
   pause: { et: "Paus", ru: "Перерыв", en: "Break" },
   resume: { et: "Jätka", ru: "Продолжить", en: "Resume" },
   gpsDenied: { et: "Asukoht on väljas. Luba see brauseris, et alustada.", ru: "Геолокация выключена. Включите её в браузере, чтобы начать смену.", en: "Location is off. Enable it in the browser to start." },
+  finishWithoutLocation: { et: "Vahetus lõpetati ilma lõpuasukohata.", ru: "Смена остановлена без геолокации завершения.", en: "The shift was stopped without an end location." },
+  finishFailed: { et: "Vahetust ei õnnestunud lõpetada. Kontrolli internetti ja proovi uuesti.", ru: "Не удалось остановить таймер. Проверьте интернет и попробуйте снова.", en: "Could not stop the timer. Check your connection and try again." },
   monthTotal: { et: "Kokku sel kuul", ru: "Всего за месяц", en: "Total this month" },
   weekTotal: { et: "Kokku sel nädalal", ru: "Всего за неделю", en: "Total this week" },
   weekShort: { et: "N", ru: "Н", en: "W" },

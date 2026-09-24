@@ -49,8 +49,8 @@ export async function GET(req: NextRequest) {
       .select("id, user_id, site_id, site_name, started_at, ended_at, worked_seconds, pricing_type, pricing_rate, pricing_label, quantity, unit, calculated_total, is_net, client_rate_id, client_pricing_rate, client_calculated_total, work_date, out_of_zone")
       .eq("company_id", profile.company_id)
       .eq("status", "closed")
-      .gte("started_at", from.toISOString())
-      .lt("started_at", to.toISOString());
+      .gte("work_date", fromStr)
+      .lte("work_date", toStr);
   if (workerId) shiftsQuery = shiftsQuery.eq("user_id", workerId);
   if (siteId) shiftsQuery = shiftsQuery.eq("site_id", siteId);
   let adjustmentsQuery = db.from("monthly_adjustments")

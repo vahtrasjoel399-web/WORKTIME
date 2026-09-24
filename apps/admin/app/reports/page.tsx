@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { supabaseServer, supabaseService } from "@/lib/supabase-server";
 import { getProfile } from "@/lib/auth";
 import { hours1, money } from "@/lib/format";
-import { parseYmd, ymd } from "@/lib/week";
+import { ymd } from "@/lib/week";
 import { clientShiftTotal, pricingUnit, PRICING_LABELS, shiftTotal } from "@/lib/pricing";
 import { formatQuantity, summarizeClientInvoice, summarizeSites, summarizeWorkers, type ReportShift } from "@/lib/report-summary";
 import type { Site } from "@/lib/types";
@@ -23,10 +23,6 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const previous = monthRange(new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth() - 1, 1)));
   const preset = query.preset === "previous" ? "previous" : query.preset === "custom" ? "custom" : "current";
   const range = preset === "previous" ? previous : preset === "custom" && validDate(query.from) && validDate(query.to) ? { from: query.from!, to: query.to! } : current;
-  const from = parseYmd(range.from);
-  const toExclusive = parseYmd(range.to);
-  toExclusive.setUTCDate(toExclusive.getUTCDate() + 1);
-
   const supabase = await supabaseServer();
   const db = me.role === "accountant" ? supabaseService() : supabase;
   const [{ data: workersRaw }, { data: sitesRaw }] = await Promise.all([
@@ -41,7 +37,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   let shiftsQuery = db.from("v_shift_report")
     .select("id, user_id, site_id, site_name, work_date, started_at, ended_at, worked_seconds, pricing_type, pricing_rate, pricing_label, quantity, unit, calculated_total, is_net, client_rate_id, client_pricing_rate, client_calculated_total, out_of_zone")
     .eq("company_id", me.company_id).eq("status", "closed")
-    .gte("started_at", from.toISOString()).lt("started_at", toExclusive.toISOString());
+    .gte("work_date", range.from).lte("work_date", range.to);
   if (workerId) shiftsQuery = shiftsQuery.eq("user_id", workerId);
   if (siteId) shiftsQuery = shiftsQuery.eq("site_id", siteId);
   let adjustmentsQuery = db.from("monthly_adjustments")

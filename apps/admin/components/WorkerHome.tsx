@@ -79,6 +79,8 @@ export function WorkerHome({
   const [seconds, setSeconds] = useState(0);
   const [busy, setBusy] = useState(false);
   const [gps, setGps] = useState<"idle" | "getting" | "ok" | "denied">("idle");
+  const [finishError, setFinishError] = useState<string | null>(null);
+  const [finishNotice, setFinishNotice] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [view, setView] = useState<"shift" | "hours">("shift");
   const [rate, setRate] = useState(profile.self_hourly_rate != null ? String(profile.self_hourly_rate) : "");
@@ -137,12 +139,11 @@ export function WorkerHome({
   const activeUnit = shift?.unit ?? selectedRate?.unit ?? profile.pricing_unit;
   const now = new Date();
   const thisWeekKey = weekKey(now);
-  const thisMonth = now.getUTCFullYear() * 12 + now.getUTCMonth();
+  const currentTallinnMonth = tallinnYearMonth(now);
   const running = phase !== "idle" ? seconds : 0;
 
   const monthRows = shifts.filter((s) => {
-    const date = new Date(s.started_at);
-    return date.getUTCFullYear() * 12 + date.getUTCMonth() === thisMonth;
+    return tallinnYearMonth(new Date(s.started_at)) === currentTallinnMonth;
   });
   const monthSeconds = monthRows.reduce((sum, row) => sum + (row.worked_seconds ?? 0), 0) + running;
   const monthQuantities = Object.entries(monthRows.reduce<Record<string, number>>((totals, row) => {
@@ -193,19 +194,30 @@ export function WorkerHome({
 
   async function finish(completed: number | null = null) {
     if (!shift) return;
+    setFinishError(null); setFinishNotice(null);
     setBusy(true); setGps("getting");
     try {
-      const f = await getFix();
+      let f: { lat: number; lng: number; acc: number | null; address: string | null } | null = null;
+      try {
+        f = await getFix();
+      } catch {
+        // A worker must always be able to stop a running timer. Location is
+        // useful evidence, but a denied/timed-out GPS request cannot trap an
+        // open shift indefinitely.
+        setGps("denied");
+        setFinishNotice(t("finishWithoutLocation"));
+      }
       if (breakStart.current) { breakAccum.current += Math.floor((Date.now() - breakStart.current) / 1000); breakStart.current = null; }
-      const { error } = await supabase.from("shifts").update({ ended_at: new Date().toISOString(), end_lat: f.lat, end_lng: f.lng,
-        end_accuracy_m: f.acc, end_address: f.address, break_seconds: breakAccum.current, status: "closed",
+      const { error } = await supabase.from("shifts").update({ ended_at: new Date().toISOString(), end_lat: f?.lat ?? null, end_lng: f?.lng ?? null,
+        end_accuracy_m: f?.acc ?? null, end_address: f?.address ?? null, break_seconds: breakAccum.current, status: "closed",
         quantity: activePricingType === "hourly" ? null : completed }).eq("id", shift.id);
       if (error) throw error;
       setShift(null); setPhase("idle"); setSeconds(0); setGps("idle");
       setCollectingQuantity(false); setCompletedQuantity("");
       router.refresh();
-    } catch (e: any) {
-      setGps(e?.code === 1 ? "denied" : "idle");
+    } catch {
+      setGps("idle");
+      setFinishError(t("finishFailed"));
     } finally { setBusy(false); }
   }
 
@@ -311,6 +323,8 @@ export function WorkerHome({
               </>
             )}
             {gps === "denied" && <p className="text-sm text-alert">{t("gpsDenied")}</p>}
+            {finishError && <p role="alert" className="text-center text-sm text-alert">{finishError}</p>}
+            {finishNotice && !active && <p role="status" className="text-center text-sm text-muted">{finishNotice}</p>}
           </div>
 
           {collectingQuantity && activePricingType !== "hourly" && (
@@ -394,10 +408,14 @@ export function WorkerHome({
 }
 
 function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+  return new Date(iso).toLocaleDateString(undefined, { timeZone: "Europe/Tallinn", weekday: "short", day: "numeric", month: "short" });
 }
 function fmtTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  return new Date(iso).toLocaleTimeString(undefined, { timeZone: "Europe/Tallinn", hour: "2-digit", minute: "2-digit" });
+}
+
+function tallinnYearMonth(date: Date): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Tallinn", year: "numeric", month: "2-digit" }).format(date);
 }
 
 function Centered({ children }: { children: React.ReactNode }) {
