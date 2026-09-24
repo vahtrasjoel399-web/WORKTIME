@@ -298,7 +298,6 @@ export function WorkerHome({
             {active && pricingType === "hourly" && showEarn && rateRes.rate != null && (
               <div className="text-center">
                 <div className="tabular text-2xl font-semibold text-signal">{money(rateRes.amount, profile.currency)}</div>
-                <div className="text-xs text-muted">{rateRes.source === "company" ? t("companyRate") : t("personalEstimate")} · {t("beforeTax")}</div>
               </div>
             )}
           </div>

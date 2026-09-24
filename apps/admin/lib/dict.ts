@@ -136,9 +136,6 @@ export const dict: Dict = {
   noShifts: { et: "Vahetusi veel pole.", ru: "Смен пока нет.", en: "No shifts yet." },
   breakShort: { et: "paus", ru: "перерыв", en: "break" },
   settings: { et: "Seaded", ru: "Настройки", en: "Settings" },
-  companyRate: { et: "ettevõtte tunnitasu", ru: "по ставке компании", en: "company rate" },
-  personalEstimate: { et: "isiklik hinnang", ru: "личная оценка", en: "personal estimate" },
-  beforeTax: { et: "enne makse, ligikaudne", ru: "до налогов, ориентировочно", en: "before tax, approximate" },
 
   // settings
   rateByEmployer: { et: "Tunnitasu (määras tööandja)", ru: "Ставка (задана работодателем)", en: "Rate (set by employer)" },
