@@ -306,7 +306,7 @@ export function WorkerHome({
           <div className="flex flex-col items-center gap-3">
             {!active ? (
               <>
-                {availableRates.length > 0 && <label className="w-full max-w-xs text-left"><span className="field-label">Töö ja netohind</span><select className="control bg-surface" value={selectedRateId} onChange={(e) => setSelectedRateId(e.target.value)}>{availableRates.map((item) => <option key={item.id} value={item.id}>{item.label} · {money(item.rate, item.currency)}/{pricingUnit(item.pricing_type, item.unit)}</option>)}</select></label>}
+                {availableRates.length > 0 && <label className="w-full max-w-xs text-left"><span className="field-label">Töö ja hind</span><select className="control bg-surface" value={selectedRateId} onChange={(e) => setSelectedRateId(e.target.value)}>{availableRates.map((item) => <option key={item.id} value={item.id}>{item.label} · {money(item.rate, item.currency)}/{pricingUnit(item.pricing_type, item.unit)}</option>)}</select></label>}
                 <button onClick={start} disabled={busy} className="h-28 w-28 rounded-full bg-primary px-2 text-center text-base font-semibold leading-tight text-primary-foreground transition-colors hover:bg-primary-hover disabled:opacity-60">
                   {busy ? "…" : t("startShift")}
                 </button>
@@ -353,7 +353,7 @@ export function WorkerHome({
                 ))}
               </div>
             )}
-            {adjustments.length > 0 && <div className="mt-3 border-t border-border pt-3 text-left text-sm">{adjustments.map((item) => <div key={item.id} className="flex justify-between gap-3"><span className="truncate text-muted">{item.note}</span><b className="tabular shrink-0">{money(item.amount, item.currency)} neto</b></div>)}</div>}
+            {adjustments.length > 0 && <div className="mt-3 border-t border-border pt-3 text-left text-sm">{adjustments.map((item) => <div key={item.id} className="flex justify-between gap-3"><span className="truncate text-muted">{item.note}</span><b className="tabular shrink-0">{money(item.amount, item.currency)}</b></div>)}</div>}
           </div>
 
           {byWeek.length === 0 ? (
@@ -386,7 +386,7 @@ export function WorkerHome({
                           </div>
                           <div className="shrink-0 text-right">
                             <div className="tabular font-semibold">{hours1(worked)} {t("hoursUnit")}</div>
-                            {showEarn && shiftTotal(s, rateRes.rate) > 0 && <div className="tabular text-sm font-semibold text-signal">{money(shiftTotal(s, rateRes.rate), profile.currency)} neto</div>}
+                            {showEarn && shiftTotal(s, rateRes.rate) > 0 && <div className="tabular text-sm font-semibold text-signal">{money(shiftTotal(s, rateRes.rate), profile.currency)}</div>}
                           </div>
                         </div>
                         <div className="tabular mt-0.5 text-sm text-muted">
