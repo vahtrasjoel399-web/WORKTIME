@@ -97,12 +97,25 @@ export default function Login() {
     if (!email.trim()) return showError(t("enterEmailFirst"));
     const clean = checkedEmail();
     if (!clean) return;
-    const supabase = supabaseBrowser();
-    const { error } = await supabase.auth.resetPasswordForEmail(clean, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/set-password`,
-    });
-    if (error) return showError(t("errCreate"));
-    setNotice(t("resetSent"));
+    setBusy(true);
+    try {
+      const response = await fetch("/api/auth/password-reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: clean }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok) {
+        if (result?.code === "account_not_found") return showError(t("accountNotFound"));
+        if (result?.code === "rate_limited") return showError(t("resetRateLimited"));
+        return showError(t("resetFailed"));
+      }
+      setNotice(t("resetSent"));
+    } catch {
+      showError(t("resetFailed"));
+    } finally {
+      setBusy(false);
+    }
   }
 
   const input = "control bg-bg px-4 py-3";
@@ -129,7 +142,7 @@ export default function Login() {
           {error && <p key={shake} role="alert" className="error-shake rounded-lg border border-alert/30 bg-alert/10 px-3 py-2 text-sm text-alert">{error}</p>}
           {notice && <p role="status" className="rounded-lg border border-live/30 bg-live/10 px-3 py-2 text-sm text-live">{notice}</p>}
           <button disabled={busy} className="btn-primary w-full">{busy ? `${t("signin")}…` : t("signin")}</button>
-          <button type="button" onClick={resetPassword} className="w-full text-sm text-muted hover:text-signal">{t("forgotPassword")}</button>
+          <button type="button" disabled={busy} onClick={resetPassword} className="w-full text-sm text-muted hover:text-signal disabled:cursor-not-allowed disabled:opacity-50">{t("forgotPassword")}</button>
           <p className="text-center text-xs text-muted">{t("autoRole")}</p>
         </form>}
 
