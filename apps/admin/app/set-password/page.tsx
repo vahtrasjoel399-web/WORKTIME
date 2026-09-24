@@ -52,7 +52,7 @@ export default function SetPasswordPage() {
             <h1 className="font-display text-2xl font-bold">{t("passwordSaved")}</h1>
             <p className="mt-2 text-sm text-muted">{t("workerReady")}</p>
           </div>
-          <a href="tooaeg:///" className="btn-primary w-full">
+          <a href="/me" className="btn-primary w-full">
             {t("openMobileApp")}
           </a>
           <p className="text-xs text-muted">{t("mobileLoginHint")}</p>

@@ -106,9 +106,9 @@ export const dict: Dict = {
   passwordMismatch: { et: "Paroolid ei ühti.", ru: "Пароли не совпадают.", en: "Passwords do not match." },
   passwordUpdateFailed: { et: "Parooli salvestamine ebaõnnestus.", ru: "Не удалось сохранить пароль.", en: "Could not save the password." },
   passwordSaved: { et: "Parool on salvestatud", ru: "Пароль сохранён", en: "Password saved" },
-  workerReady: { et: "Sinu töötaja konto on valmis. Ava Tööaeg mobiilirakendus.", ru: "Ваш аккаунт работника готов. Откройте мобильное приложение Tööaeg.", en: "Your worker account is ready. Open the Tööaeg mobile app." },
-  openMobileApp: { et: "Ava mobiilirakendus", ru: "Открыть мобильное приложение", en: "Open mobile app" },
-  mobileLoginHint: { et: "Logi sisse sama e-posti ja äsja loodud parooliga.", ru: "Войдите с той же почтой и только что созданным паролем.", en: "Sign in with the same email and the password you just created." },
+  workerReady: { et: "Sinu töötaja konto on valmis. Jätka WorkTime’i töölauale.", ru: "Ваш аккаунт работника готов. Перейдите в рабочий кабинет WorkTime.", en: "Your worker account is ready. Continue to your WorkTime dashboard." },
+  openMobileApp: { et: "Jätka WorkTime’is", ru: "Продолжить в WorkTime", en: "Continue to WorkTime" },
+  mobileLoginHint: { et: "Edaspidi logi sisse sama e-posti ja uue parooliga.", ru: "В дальнейшем входите с этой почтой и новым паролем.", en: "Next time, sign in with this email and your new password." },
 
   companyCreated: { et: "Ettevõte on loodud", ru: "Компания создана", en: "Company created" },
   shareCode: { et: "Jaga seda koodi töötajatega — nad sisestavad selle registreerumisel.", ru: "Дайте этот код работникам — они введут его при регистрации.", en: "Share this code with workers — they enter it when registering." },
